@@ -1,0 +1,16 @@
+=== Validation Étape 1 : Namespaces et isolation ===
+PASS: Namespace 'dev' existe
+PASS: Namespace 'staging' existe
+PASS: Namespace 'prod' existe
+PASS: Namespace 'tools' existe
+PASS: Labels du namespace 'dev' corrects
+PASS: Labels du namespace 'staging' corrects
+PASS: Labels du namespace 'prod' corrects
+PASS: Labels du namespace 'tools' corrects
+PASS: Namespace 'dev' vide (aucun pod)
+PASS: Namespace 'staging' vide (aucun pod)
+PASS: Namespace 'prod' vide (aucun pod)
+PASS: Namespace 'tools' vide (aucun pod)
+
+=== Résultat : 12 PASS, 0 FAIL ===
+PASS: Validation complète réussie
