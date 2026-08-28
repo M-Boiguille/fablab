@@ -1,8 +1,16 @@
-current_step: 1
+current_step: 2
 total_steps: 16
 stack: kubernetes
 status: in_progress
-context_capsule: Aucune étape réalisée pour l'instant.
-key_decisions: []
-pending_risks: []
-last_updated: '2026-08-28T07:36:34.767222Z'
+context_capsule: Isolation logique via 4 namespaces (dev, staging, prod, tools) avec
+  labels standardisés. Clusters séparés rejetés pour coût, namespace unique pour risques.
+  Validation automatisée kubectl réussie. Base posée pour RBAC et quotas.
+key_decisions:
+- 4 namespaces par environnement (dev, staging, prod, tools) avec labels standardisés
+  (environment, team, managed-by)
+- Rejet clusters séparés (coût/complexité) et namespace unique (aucune isolation)
+- Validation automatisée via kubectl pour reproductibilité
+pending_risks:
+- Prolifération de namespaces non gouvernés à l'avenir
+- Namespace mal configuré peut exposer des ressources sensibles
+last_updated: '2026-08-28T22:15:11.504987Z'
