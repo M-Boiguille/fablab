@@ -42,4 +42,6 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.event.pull_request.head.ref }}
         run: |
+          echo "GITHUB_HEAD_REF=$GITHUB_HEAD_REF"
+          python -c "import sys, os; print('argv:', sys.argv); print('env:', os.environ.get('GITHUB_HEAD_REF'))"
           python scripts/pipeline_orchestrator.py --action generate-mission --pr-head-ref "$GITHUB_HEAD_REF"
