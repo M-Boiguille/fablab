@@ -76,6 +76,15 @@ def load_text(path: str) -> str:
         return f.read()
 
 
+def _first_meaningful_line(content: str) -> str:
+    """Retourne la première ligne non vide qui ne commence pas par # ou =."""
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith(("#", "=")):
+            return stripped
+    return ""
+
+
 def format_template(text: str, step: int) -> str:
     step_padded = f"{step:02d}"
     return text.format(step=step, step_padded=step_padded)
@@ -435,13 +444,13 @@ def check_pr(args: argparse.Namespace) -> None:
     if not content:
         raise RuntimeError(f"Fichier de résultat vide : {result_path}")
 
-    first_line = content.splitlines()[0].strip()
+    first_line = _first_meaningful_line(content)
     if first_line == "FAIL":
         raise RuntimeError(f"Tests en échec. Voir {result_path}")
     if first_line == "PENDING":
         raise RuntimeError(f"Tests non exécutés. Mettez à jour {result_path}")
     if first_line != "PASS":
-        raise RuntimeError(f"Première ligne doit être PASS, FAIL ou PENDING dans {result_path}")
+        raise RuntimeError(f"Première ligne utile doit être PASS, FAIL ou PENDING dans {result_path}")
 
     # Attestation légère : exige une section --- Summary ---
     if "--- Summary ---" not in content:
@@ -529,8 +538,8 @@ def sre_review(args: argparse.Namespace) -> None:
         return
 
     result = load_text(result_path).strip()
-    if not result.startswith("PASS"):
-        print(f"Tests non PASS pour l'étape {step:02d}, SRE review ignorée")
+    if _first_meaningful_line(result) != "PASS":
+        print(f"Tests non PASS pour l'etape {step:02d}, SRE review ignoree")
         return
 
     manifests_dir = f"stacks/{stack}/infra/manifests"
