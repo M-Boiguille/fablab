@@ -40,10 +40,10 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
+          PR_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
           PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.number }}
         run: |
-          python scripts/pipeline_orchestrator.py --action review-adr
+          python scripts/pipeline_orchestrator.py --action review-adr --pr-head-ref "$PR_HEAD_REF"
 
   sre-review:
     runs-on: ubuntu-latest
@@ -65,7 +65,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
+          PR_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
           PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.number }}
         run: |
-          python scripts/pipeline_orchestrator.py --action sre-review
+          python scripts/pipeline_orchestrator.py --action sre-review --pr-head-ref "$PR_HEAD_REF"

@@ -32,6 +32,6 @@ jobs:
 
       - name: Check PR artifacts and attestation
         env:
-          GITHUB_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
+          PR_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
         run: |
-          python scripts/pipeline_orchestrator.py --action check-pr
+          python scripts/pipeline_orchestrator.py --action check-pr --pr-head-ref "$PR_HEAD_REF"
