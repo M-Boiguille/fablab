@@ -444,13 +444,14 @@ def check_pr(args: argparse.Namespace) -> None:
     if not content:
         raise RuntimeError(f"Fichier de résultat vide : {result_path}")
 
+    pass_markers = test_strategy.get("pass_markers", ["PASS"])
     first_line = _first_meaningful_line(content)
-    if first_line == "FAIL":
-        raise RuntimeError(f"Tests en échec. Voir {result_path}")
-    if first_line == "PENDING":
-        raise RuntimeError(f"Tests non exécutés. Mettez à jour {result_path}")
-    if first_line != "PASS":
-        raise RuntimeError(f"Première ligne utile doit être PASS, FAIL ou PENDING dans {result_path}")
+    if first_line.startswith("FAIL"):
+        raise RuntimeError(f"Tests en echec. Voir {result_path}")
+    if first_line.startswith("PENDING"):
+        raise RuntimeError(f"Tests non executes. Mettez a jour {result_path}")
+    if not first_line.startswith(tuple(pass_markers)):
+        raise RuntimeError(f"Premiere ligne utile doit commencer par {pass_markers} dans {result_path}")
 
     # Attestation légère : exige une section --- Summary ---
     if "--- Summary ---" not in content:
@@ -538,7 +539,8 @@ def sre_review(args: argparse.Namespace) -> None:
         return
 
     result = load_text(result_path).strip()
-    if _first_meaningful_line(result) != "PASS":
+    pass_markers = test_strategy.get("pass_markers", ["PASS"])
+    if not _first_meaningful_line(result).startswith(tuple(pass_markers)):
         print(f"Tests non PASS pour l'etape {step:02d}, SRE review ignoree")
         return
 
