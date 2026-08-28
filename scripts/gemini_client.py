@@ -24,8 +24,8 @@ class LLMClient:
         max_retries: int = 3,
         backoff: int = 2,
     ):
-        self.gemini_key = gemini_key or os.environ.get("GEMINI_API_KEY")
-        self.deepseek_key = deepseek_key or os.environ.get("DEEPSEEK_API_KEY")
+        self.gemini_key = (gemini_key or os.environ.get("GEMINI_API_KEY") or "").strip()
+        self.deepseek_key = (deepseek_key or os.environ.get("DEEPSEEK_API_KEY") or "").strip()
         self.gemini_url = gemini_url or self.DEFAULT_GEMINI_URL
         self.deepseek_url = deepseek_url or self.DEFAULT_DEEPSEEK_URL
         self.max_retries = max_retries

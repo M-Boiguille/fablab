@@ -388,8 +388,15 @@ def generate_mission_for_stack(llm: LLMClient, stack: str) -> None:
     )
     mission = llm.chat(prompt, user_prompt)
 
-    # Crée la branche et la PR
+    # Crée la branche et pousse la mission pour avoir un diff
     branch = create_branch(stack, next_step, step_info["title"])
+    create_or_update_file(
+        stack,
+        branch,
+        f"missions/mission_step_{next_step:02d}.md",
+        mission,
+        f"mission: step {next_step:02d}",
+    )
     pr_number, pr_url = create_pr(stack, branch, f"Step {next_step:02d}: {step_info['title']}", mission)
     print(f"PR #{pr_number} créée : {pr_url}")
 
