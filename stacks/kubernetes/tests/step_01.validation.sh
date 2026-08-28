@@ -1,12 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-RESULT_FILE="tests/step_01_result.txt"
+RESULT_FILE="step_01_result.txt"
 PASS_COUNT=0
 FAIL_COUNT=0
-
-mkdir -p tests
-touch tests/step_01_result.txt
 
 echo "=== Validation Étape 1 : Namespaces et isolation ===" >"$RESULT_FILE"
 
