@@ -1,8 +1,8 @@
-current_step: 0
+current_step: 1
 total_steps: 16
-stack: "kubernetes"
-status: "not_started"
-context_capsule: "Aucune étape réalisée pour l'instant."
+stack: kubernetes
+status: in_progress
+context_capsule: Aucune étape réalisée pour l'instant.
 key_decisions: []
 pending_risks: []
-last_updated: "2026-08-28T05:49:12Z"
+last_updated: '2026-08-28T06:02:58.268567Z'
