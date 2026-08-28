@@ -471,7 +471,7 @@ def review_adr(args: argparse.Namespace) -> None:
     if not pr_number:
         raise RuntimeError("PR_NUMBER requis")
 
-    step = parse_step_from_ref(head_ref)
+    branch_stack, step = parse_branch_ref(head_ref)
     test_strategy = load_test_strategy(stack)
     roadmap = load_stack(stack)
     state = load_state(stack)
@@ -506,7 +506,7 @@ def sre_review(args: argparse.Namespace) -> None:
     if not pr_number:
         raise RuntimeError("PR_NUMBER requis")
 
-    step = parse_step_from_ref(head_ref)
+    branch_stack, step = parse_branch_ref(head_ref)
     test_strategy = load_test_strategy(stack)
     roadmap = load_stack(stack)
     state = load_state(stack)
