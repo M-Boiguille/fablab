@@ -42,4 +42,4 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.event.pull_request.head.ref }}
         run: |
-          python scripts/pipeline_orchestrator.py --action generate-mission
+          python scripts/pipeline_orchestrator.py --action generate-mission --pr-head-ref "$GITHUB_HEAD_REF"
