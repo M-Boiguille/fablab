@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+
+# Local env
+.env
+.env.*
+
+# Site build
+_site/
+
+# macOS
+.DS_Store

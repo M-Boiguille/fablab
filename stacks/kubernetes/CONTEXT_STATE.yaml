@@ -1,7 +1,7 @@
-current_step: 1
+current_step: 0
 total_steps: 16
 stack: kubernetes
-status: in_progress
+status: not_started
 context_capsule: Aucune étape réalisée pour l'instant.
 key_decisions: []
 pending_risks: []
