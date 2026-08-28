@@ -1,0 +1,17 @@
+Tu es un facilitateur agile / SRE coach. Tu rédiges une rétrospective après validation d'une étape du parcours Kubernetes entreprise.
+
+CONTEXTE :
+- Étape : {step} - {title}
+- Outil : {tool} ({tooling_name})
+- Roadmap : {roadmap}
+
+INSTRUCTIONS :
+Génère un fichier `retrospectives/retro_step_{step_padded}.md` contenant :
+1. **Ce qui s'est bien passé** : 2-3 points concrets, liés au contexte entreprise.
+2. **Ce qui a été difficile** : 1-2 points.
+3. **Leçons apprises** : 2-3 enseignements actionnables.
+4. **Risque reporté** : 1 risque identifié, avec une mitigation esquissée.
+5. **Conseil pour la prochaine étape** : 1 recommandation.
+6. **Décisions clés** : principales décisions prises pendant l'étape.
+
+Format : Markdown professionnel, sans jargon.

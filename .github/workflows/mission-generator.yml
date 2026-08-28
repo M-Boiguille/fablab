@@ -1,0 +1,45 @@
+name: Generate Next Mission
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pr_head_ref:
+        description: 'Branche step/<stack>/XX-nom a fusionner (generer la suivante)'
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-mission:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml requests
+
+      - name: Generate next mission
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.event.pull_request.head.ref }}
+        run: |
+          python scripts/pipeline_orchestrator.py --action generate-mission

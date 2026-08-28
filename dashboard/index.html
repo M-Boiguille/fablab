@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Platform</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Learning Platform</h1>
+        <nav>
+            <select id="stack-selector">
+                <option value="" disabled selected>Choisir une stack</option>
+            </select>
+            <span id="progress-badge">0%</span>
+        </nav>
+    </header>
+
+    <main>
+        <div class="board">
+            <div class="column" id="todo">
+                <h2>A faire</h2>
+                <div class="card-list" id="todo-list"></div>
+            </div>
+            <div class="column" id="in-progress">
+                <h2>En cours</h2>
+                <div class="card-list" id="inprogress-list"></div>
+            </div>
+            <div class="column" id="review">
+                <h2>En review</h2>
+                <div class="card-list" id="review-list"></div>
+            </div>
+            <div class="column" id="done">
+                <h2>Valide</h2>
+                <div class="card-list" id="done-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

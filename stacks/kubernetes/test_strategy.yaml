@@ -1,0 +1,16 @@
+tool: "kubectl"
+tooling_name: "Kubernetes"
+required_files:
+  - "infra/adrs/adr_step_{step:02d}_final.md"
+  - "tests/step_{step:02d}_validation.sh"
+  - "tests/step_{step:02d}_result.txt"
+pass_markers:
+  - "PASS"
+suggested_command: "tests/step_{step:02d}_validation.sh"
+validation_output: "tests/step_{step:02d}_result.txt"
+# Verifications statiques optionnelles, executees en CI si kubeconform/yamllint sont disponibles.
+# Exemples K8s entreprise :
+#   - "kubeconform -summary -strict infra/manifests"
+#   - "yamllint -c .yamllint infra/manifests"
+# Laisser vide si ces outils ne sont pas installes dans le runner.
+static_checks: []

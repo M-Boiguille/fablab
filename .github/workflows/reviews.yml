@@ -1,0 +1,71 @@
+name: AI Reviews
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+    paths:
+      - 'stacks/**'
+  workflow_dispatch:
+    inputs:
+      pr_head_ref:
+        description: 'Branche step/<stack>/XX-nom a reviewer'
+        required: true
+      pr_number:
+        description: 'Numero de la PR'
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review-adr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml requests
+
+      - name: ADR review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.number }}
+        run: |
+          python scripts/pipeline_orchestrator.py --action review-adr
+
+  sre-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml requests
+
+      - name: SRE review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.number }}
+        run: |
+          python scripts/pipeline_orchestrator.py --action sre-review

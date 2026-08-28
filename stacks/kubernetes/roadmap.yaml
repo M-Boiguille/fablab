@@ -1,0 +1,52 @@
+name: "Kubernetes - Parcours Entreprise"
+stack: "kubernetes"
+total_steps: 16
+steps:
+  - step: 1
+    title: "Namespaces et isolation des environnements"
+    description: "Découper dev, staging, prod et tools via des namespaces. Comprendre l'isolation logique et le naming en entreprise."
+  - step: 2
+    title: "RBAC et moindre privilège"
+    description: "Modéliser les accès des développeurs, QA, SREs et services via des Roles, ClusterRoles et Bindings."
+  - step: 3
+    title: "Déploiements basiques avec RollingUpdate"
+    description: "Packager une application en Deployment et Service. Appliquer une stratégie RollingUpdate sans coupure."
+  - step: 4
+    title: "Probes et observabilité applicative"
+    description: "Configurer livenessProbe et readinessProbe. Introduire Prometheus, Grafana et les premières alertes."
+  - step: 5
+    title: "ResourceQuotas et LimitRanges"
+    description: "Protéger le cluster des consommations excessives avec des quotas par namespace et des limites par conteneur."
+  - step: 6
+    title: "Stratégies avancées : Blue/Green et Canary"
+    description: "Mettre en place des déploiements Blue/Green et Canary pour gérer des versions critiques."
+  - step: 7
+    title: "GitOps avec ArgoCD et structure de repo"
+    description: "Organiser le dépôt par environnements et connecter ArgoCD pour synchroniser l'état désiré."
+  - step: 8
+    title: "Helm et Kustomize"
+    description: "Gérer les écarts de configuration entre dev, staging et prod via Helm et Kustomize."
+  - step: 9
+    title: "Sécurité réseau avec NetworkPolicy"
+    description: "Segmenter le trafic inter-pod et restreindre l'accès à la base de données et aux services sensibles."
+  - step: 10
+    title: "Pod Security et policies d'admission"
+    description: "Appliquer Pod Security Admission, Kyverno ou OPA/Gatekeeper pour imposer des règles de sécurité."
+  - step: 11
+    title: "Gestion des secrets"
+    description: "Utiliser Kubernetes Secrets, Sealed Secrets ou External Secrets Operator pour ne pas exposer de credentials."
+  - step: 12
+    title: "Supply chain et sécurité des images"
+    description: "Configurer un registre privé, scanner les images avec Trivy et signer avec Cosign."
+  - step: 13
+    title: "Sauvegarde et reprise après sinistre"
+    description: "Sauvegarder les ressources et volumes avec Velero et tester la restauration."
+  - step: 14
+    title: "Audit, traçabilité et conformité"
+    description: "Activer les audit logs, connecter un SIEM, gérer OIDC/SSO et respecter les contraintes de résidence."
+  - step: 15
+    title: "Tests de charge et chaos engineering"
+    description: "Valider la charge avec k6/Locust et introduire le chaos engineering avec Chaos Mesh."
+  - step: 16
+    title: "Runbooks, ADR et gestion du cycle de vie"
+    description: "Documenter les procédures d'incident, les choix d'architecture et planifier les upgrades du cluster."

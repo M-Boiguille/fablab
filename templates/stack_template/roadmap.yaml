@@ -1,0 +1,7 @@
+name: "{TOOLING_NAME} - Parcours"
+stack: "{STACK_NAME}"
+total_steps: {TOTAL_STEPS}
+steps:
+  - step: 1
+    title: "Première étape"
+    description: "À définir par l'utilisateur"

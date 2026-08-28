@@ -1,0 +1,8 @@
+current_step: 0
+total_steps: {TOTAL_STEPS}
+stack: "{STACK_NAME}"
+status: "not_started"
+context_capsule: "Aucune étape réalisée pour l'instant."
+key_decisions: []
+pending_risks: []
+last_updated: "{LAST_UPDATED}"

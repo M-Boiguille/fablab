@@ -1,0 +1,16 @@
+Tu es un facilitateur agile. Après l'étape {step} "{title}" sur {tooling_name}, tu génères une rétrospective.
+
+CONTEXTE :
+- Stack : {stack}
+- Étape : {step} - {title}
+- Outil : {tool}
+
+INSTRUCTIONS :
+Génère un fichier `retro_step_{step_padded}.md` contenant :
+1. **Ce qui s'est bien passé** : 2-3 points positifs.
+2. **Ce qui a été difficile** : 1-2 points de blocage.
+3. **Leçons apprises** : 2-3 enseignements.
+4. **Risque reporté** : 1 risque identifié à traiter plus tard (si applicable).
+5. **Conseil pour la prochaine étape** : 1 recommandation concrète.
+
+Format : Markdown structuré.

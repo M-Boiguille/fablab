@@ -1,0 +1,30 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f5f7; color: #172b4d; }
+
+header { background: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #dfe1e6; }
+header h1 { font-size: 20px; font-weight: 600; }
+nav { display: flex; align-items: center; gap: 16px; }
+#stack-selector { padding: 8px 12px; border-radius: 4px; border: 1px solid #dfe1e6; background: #fff; font-size: 14px; }
+#progress-badge { background: #0052cc; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 14px; font-weight: 500; }
+
+.board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 24px; max-width: 1400px; margin: 0 auto; }
+.column { background: #ebecf0; border-radius: 8px; padding: 12px; min-height: 400px; }
+.column h2 { font-size: 14px; font-weight: 600; text-transform: uppercase; color: #5e6c84; margin-bottom: 12px; letter-spacing: 0.5px; }
+
+.card { background: #fff; border-radius: 4px; padding: 12px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); cursor: pointer; transition: box-shadow 0.2s; border-left: 4px solid #0052cc; }
+.card:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.16); }
+.card .step-number { font-size: 12px; font-weight: 600; color: #5e6c84; }
+.card .step-title { font-size: 14px; font-weight: 500; margin: 4px 0; }
+.card .step-status { font-size: 12px; color: #5e6c84; }
+.card.done { border-left-color: #36b37e; }
+.card.in-progress { border-left-color: #ffab00; }
+.card.review { border-left-color: #6554c0; }
+
+.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow: auto; }
+.modal-content { background: #fff; margin: 5% auto; padding: 24px; width: 80%; max-width: 900px; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+.close { float: right; font-size: 28px; font-weight: bold; cursor: pointer; color: #5e6c84; }
+.close:hover { color: #172b4d; }
+
+@media (max-width: 768px) {
+    .board { grid-template-columns: 1fr; }
+}
