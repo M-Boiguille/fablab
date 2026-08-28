@@ -453,9 +453,9 @@ def check_pr(args: argparse.Namespace) -> None:
     if not first_line.startswith(tuple(pass_markers)):
         raise RuntimeError(f"Premiere ligne utile doit commencer par {pass_markers} dans {result_path}")
 
-    # Attestation légère : exige une section --- Summary ---
-    if "--- Summary ---" not in content:
-        raise RuntimeError(f"Section '--- Summary ---' manquante dans {result_path}")
+    # Attestation legere : section Summary (--- Summary --- ou === Summary ===)
+    if not re.search(r"[-=]{3,}\s*Summary\s*[-=]{3,}", content, re.IGNORECASE):
+        raise RuntimeError(f"Section 'Summary' manquante dans {result_path}")
 
     # Vérifications statiques optionnelles définies dans test_strategy.yaml
     for check in test_strategy.get("static_checks", []):
