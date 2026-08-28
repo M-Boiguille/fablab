@@ -450,14 +450,22 @@ def check_pr(args: argparse.Namespace) -> None:
     # Vérifications statiques optionnelles définies dans test_strategy.yaml
     for check in test_strategy.get("static_checks", []):
         check = format_template(check, step)
-        print(f"🔍 Vérification statique : {check}")
+        print(f"Verification statique : {check}")
         subprocess.run(check, shell=True, check=True, cwd=f"stacks/{stack}")
 
-    print(f"✅ Étape {step:02d} OK — artifacts présents, attestation et vérifications statiques conformes")
+    print(f"Etape {step:02d} OK — artifacts presents, attestation et verifications statiques conformes")
 
 
-def post_pr_comment(pr_number: int, body: str) -> None:
-    gh_post(f"repos/{REPO}/issues/{pr_number}/comments", {"body": body})
+def post_pr_comment(pr_number: int, body: str, key: str = "") -> None:
+    marker = f"<!-- review-key:{key} -->"
+    full_body = f"{marker}\n{body}"
+    if key:
+        comments = gh_get(f"repos/{REPO}/issues/{pr_number}/comments")
+        for c in comments:
+            if marker in c.get("body", ""):
+                _gh("PATCH", f"repos/{REPO}/issues/comments/{c['id']}", {"body": full_body})
+                return
+    gh_post(f"repos/{REPO}/issues/{pr_number}/comments", {"body": full_body})
 
 
 def review_adr(args: argparse.Namespace) -> None:
@@ -491,7 +499,7 @@ def review_adr(args: argparse.Namespace) -> None:
     adr = load_text(adr_path)
     user_prompt = f"ADR à reviewer :\n\n{adr}"
     review = llm.chat(prompt, user_prompt)
-    post_pr_comment(pr_number, f"## Review Architecte — Étape {step:02d}\n\n{review}")
+    post_pr_comment(pr_number, f"## Review Architecte — Étape {step:02d}\n\n{review}", f"review-adr-{pr_number}")
     print(f"Review ADR postée sur PR #{pr_number}")
 
 
@@ -542,7 +550,7 @@ def sre_review(args: argparse.Namespace) -> None:
         f"Artefacts d'infra :\n{manifests}"
     )
     review = llm.chat(prompt, user_prompt)
-    post_pr_comment(pr_number, f"## Review SRE — Étape {step:02d}\n\n{review}")
+    post_pr_comment(pr_number, f"## Review SRE — Étape {step:02d}\n\n{review}", f"review-sre-{pr_number}")
     print(f"Review SRE postée sur PR #{pr_number}")
 
 
