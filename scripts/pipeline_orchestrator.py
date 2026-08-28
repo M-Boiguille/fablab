@@ -381,8 +381,9 @@ def generate_mission(args: argparse.Namespace) -> None:
         raise RuntimeError("GITHUB_REPOSITORY et GITHUB_TOKEN doivent être définis")
 
     llm = LLMClient()
-    if args.pr_head_ref:
-        stack, _ = parse_branch_ref(args.pr_head_ref)
+    head_ref = args.pr_head_ref or os.environ.get("GITHUB_HEAD_REF", "")
+    if head_ref:
+        stack, _ = parse_branch_ref(head_ref)
         generate_mission_for_stack(llm, stack)
     elif args.stack:
         generate_mission_for_stack(llm, args.stack)
