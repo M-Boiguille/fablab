@@ -25,9 +25,16 @@ HEADERS = {
 }
 
 
-def _gh(method: str, path: str, json_data: Optional[Dict] = None, params: Optional[Dict] = None) -> Any:
+def _gh(
+    method: str,
+    path: str,
+    json_data: Optional[Dict] = None,
+    params: Optional[Dict] = None,
+) -> Any:
     url = f"{GITHUB_API}/{path}"
-    response = requests.request(method, url, headers=HEADERS, json=json_data, params=params, timeout=30)
+    response = requests.request(
+        method, url, headers=HEADERS, json=json_data, params=params, timeout=30
+    )
     response.raise_for_status()
     if response.status_code == 204:
         return None
@@ -151,7 +158,9 @@ def create_branch(stack: str, step: int, title: str) -> str:
     return branch
 
 
-def create_or_update_file(stack: str, branch: str, rel_path: str, content: str, message: str) -> None:
+def create_or_update_file(
+    stack: str, branch: str, rel_path: str, content: str, message: str
+) -> None:
     api_path = f"repos/{REPO}/contents/stacks/{stack}/{rel_path}"
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
     data = {"message": message, "content": encoded, "branch": branch}
@@ -187,7 +196,10 @@ def commit_to_main(paths: List[str], message: str) -> None:
     if diff.returncode == 0:
         return
 
-    subprocess.run(["git", "config", "user.email", "devin-ai[bot]@users.noreply.github.com"], check=False)
+    subprocess.run(
+        ["git", "config", "user.email", "devin-ai[bot]@users.noreply.github.com"],
+        check=False,
+    )
     subprocess.run(["git", "config", "user.name", "Devin AI"], check=False)
     subprocess.run(["git", "commit", "-m", message], check=True)
     subprocess.run(["git", "push", "origin", "main"], check=True)
@@ -202,8 +214,13 @@ def build_context(
     test_strategy: Dict,
 ) -> Dict[str, Any]:
     step_padded = f"{step:02d}"
-    suggested_command = format_template(test_strategy.get("suggested_command", "tests/step_{step:02d}_validation.sh"), step)
-    validation_output = format_template(test_strategy.get("validation_output", "tests/step_{step:02d}_result.txt"), step)
+    suggested_command = format_template(
+        test_strategy.get("suggested_command", "tests/step_{step:02d}_validation.sh"),
+        step,
+    )
+    validation_output = format_template(
+        test_strategy.get("validation_output", "tests/step_{step:02d}_result.txt"), step
+    )
     required_files = "\n".join(
         [format_template(f, step) for f in test_strategy.get("required_files", [])]
     )
@@ -219,17 +236,28 @@ def build_context(
         "validation_output": validation_output,
         "required_files": required_files,
         "book_toc": load_text(f"stacks/{stack}/resources/book_toc.md"),
-        "kodekloud_modules": load_text(f"stacks/{stack}/resources/kodekloud_modules.md"),
+        "kodekloud_modules": load_text(
+            f"stacks/{stack}/resources/kodekloud_modules.md"
+        ),
         "state": yaml.safe_dump(state),
         "roadmap": yaml.safe_dump(roadmap),
     }
 
 
-def update_state_from_step(llm: LLMClient, stack: str, step: int, step_info: Dict, state: Dict, test_strategy: Dict) -> None:
+def update_state_from_step(
+    llm: LLMClient,
+    stack: str,
+    step: int,
+    step_info: Dict,
+    state: Dict,
+    test_strategy: Dict,
+) -> None:
     ctx = build_context(stack, step, step_info, state, load_stack(stack), test_strategy)
     prompt = load_prompt(stack, "system_state_updater.txt", ctx)
     adr = load_text(f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md")
-    result = load_text(f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}")
+    result = load_text(
+        f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
+    )
     retro = load_text(f"stacks/{stack}/retrospectives/retro_step_{step:02d}.md")
     user_prompt = (
         f"Étape : {step} - {step_info['title']}\n\n"
@@ -244,7 +272,9 @@ def update_state_from_step(llm: LLMClient, stack: str, step: int, step_info: Dic
     for key in ("key_decisions", "pending_risks"):
         values = parsed.get(key)
         if values:
-            state.setdefault(key, []).extend(values if isinstance(values, list) else [values])
+            state.setdefault(key, []).extend(
+                values if isinstance(values, list) else [values]
+            )
 
 
 def parse_state_update(output: str) -> Dict:
@@ -265,11 +295,20 @@ def parse_state_update(output: str) -> Dict:
     }
 
 
-def generate_retrospective(llm: LLMClient, stack: str, step: int, step_info: Dict, state: Dict, test_strategy: Dict) -> str:
+def generate_retrospective(
+    llm: LLMClient,
+    stack: str,
+    step: int,
+    step_info: Dict,
+    state: Dict,
+    test_strategy: Dict,
+) -> str:
     ctx = build_context(stack, step, step_info, state, load_stack(stack), test_strategy)
     prompt = load_prompt(stack, "system_retrospective.txt", ctx)
     adr = load_text(f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md")
-    result = load_text(f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}")
+    result = load_text(
+        f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
+    )
     review = ""
     user_prompt = (
         f"Étape : {step} - {step_info['title']}\n\n"
@@ -294,7 +333,10 @@ def build_dashboard_data(args: argparse.Namespace) -> None:
 
     if REPO and GITHUB_TOKEN:
         try:
-            prs = gh_get(f"repos/{REPO}/pulls", {"state": "open", "per_page": "100", "base": "main"})
+            prs = gh_get(
+                f"repos/{REPO}/pulls",
+                {"state": "open", "per_page": "100", "base": "main"},
+            )
             for pr in prs:
                 ref = pr.get("head", {}).get("ref", "")
                 match = re.search(r"step/([^/]+)/(\d+)", ref)
@@ -302,12 +344,14 @@ def build_dashboard_data(args: argparse.Namespace) -> None:
                     stack = match.group(1)
                     step = int(match.group(2))
                     if stack in stacks_data:
-                        stacks_data[stack]["pull_requests"].append({
-                            "step": step,
-                            "number": pr["number"],
-                            "html_url": pr["html_url"],
-                            "title": pr["title"],
-                        })
+                        stacks_data[stack]["pull_requests"].append(
+                            {
+                                "step": step,
+                                "number": pr["number"],
+                                "html_url": pr["html_url"],
+                                "title": pr["title"],
+                            }
+                        )
         except Exception as e:
             print(f"Avertissement : impossible de charger les PRs ouvertes : {e}")
 
@@ -316,14 +360,20 @@ def build_dashboard_data(args: argparse.Namespace) -> None:
         "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
     }
     output = args.output or "data.json"
-    os.makedirs(os.path.dirname(output) if os.path.dirname(output) else ".", exist_ok=True)
+    os.makedirs(
+        os.path.dirname(output) if os.path.dirname(output) else ".", exist_ok=True
+    )
     with open(output, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     print(f"Données dashboard écrites dans {output}")
 
 
 def _list_stacks() -> List[str]:
-    return [d for d in sorted(os.listdir("stacks")) if os.path.isdir(os.path.join("stacks", d)) and not d.startswith(".")]
+    return [
+        d
+        for d in sorted(os.listdir("stacks"))
+        if os.path.isdir(os.path.join("stacks", d)) and not d.startswith(".")
+    ]
 
 
 def generate_mission(args: argparse.Namespace) -> None:
@@ -353,7 +403,9 @@ def generate_mission_for_stack(llm: LLMClient, stack: str) -> None:
     if current > 0:
         prev_step = next((s for s in roadmap["steps"] if s["step"] == current), None)
         if prev_step:
-            retro = generate_retrospective(llm, stack, current, prev_step, state, test_strategy)
+            retro = generate_retrospective(
+                llm, stack, current, prev_step, state, test_strategy
+            )
             retro_path = f"stacks/{stack}/retrospectives/retro_step_{current:02d}.md"
             os.makedirs(os.path.dirname(retro_path), exist_ok=True)
             with open(retro_path, "w", encoding="utf-8") as f:
@@ -365,8 +417,11 @@ def generate_mission_for_stack(llm: LLMClient, stack: str) -> None:
     if next_step > roadmap["total_steps"]:
         state["status"] = "completed"
         save_state(stack, state)
-        commit_to_main([f"stacks/{stack}/CONTEXT_STATE.yaml"] + ([retro_path] if retro_path else []),
-                       f"chore: parcours terminé, rétro étape {current:02d}")
+        commit_to_main(
+            [f"stacks/{stack}/CONTEXT_STATE.yaml"]
+            + ([retro_path] if retro_path else []),
+            f"chore: parcours terminé, rétro étape {current:02d}",
+        )
         print("Toutes les étapes sont terminées. Aucune nouvelle mission.")
         return
 
@@ -382,7 +437,10 @@ def generate_mission_for_stack(llm: LLMClient, stack: str) -> None:
     paths_to_commit = [f"stacks/{stack}/CONTEXT_STATE.yaml"]
     if retro_path:
         paths_to_commit.append(retro_path)
-    commit_to_main(paths_to_commit, f"chore: state update step {next_step:02d} + rétro step {current:02d}")
+    commit_to_main(
+        paths_to_commit,
+        f"chore: state update step {next_step:02d} + rétro step {current:02d}",
+    )
 
     # Génère la mission
     ctx = build_context(stack, next_step, step_info, state, roadmap, test_strategy)
@@ -406,14 +464,18 @@ def generate_mission_for_stack(llm: LLMClient, stack: str) -> None:
         mission,
         f"mission: step {next_step:02d}",
     )
-    pr_number, pr_url = create_pr(stack, branch, f"Step {next_step:02d}: {step_info['title']}", mission)
+    pr_number, pr_url = create_pr(
+        stack, branch, f"Step {next_step:02d}: {step_info['title']}", mission
+    )
     print(f"PR #{pr_number} créée : {pr_url}")
 
 
 def parse_branch_ref(head_ref: str) -> Tuple[str, int]:
     match = re.search(r"step/([^/]+)/(\d+)", head_ref)
     if not match:
-        raise RuntimeError(f"Nom de branche invalide : {head_ref} (attendu step/<stack>/XX-nom)")
+        raise RuntimeError(
+            f"Nom de branche invalide : {head_ref} (attendu step/<stack>/XX-nom)"
+        )
     return match.group(1), int(match.group(2))
 
 
@@ -425,7 +487,9 @@ def check_pr(args: argparse.Namespace) -> None:
     branch_stack, step = parse_branch_ref(head_ref)
     stack = args.stack or branch_stack
     test_strategy = load_test_strategy(stack)
-    required = [format_template(f, step) for f in test_strategy.get("required_files", [])]
+    required = [
+        format_template(f, step) for f in test_strategy.get("required_files", [])
+    ]
 
     missing: List[str] = []
     for f in required:
@@ -435,7 +499,9 @@ def check_pr(args: argparse.Namespace) -> None:
     if missing:
         raise RuntimeError(f"Fichiers manquants ou vides : {', '.join(missing)}")
 
-    validation_output = format_template(test_strategy.get("validation_output", "tests/step_{step:02d}_result.txt"), step)
+    validation_output = format_template(
+        test_strategy.get("validation_output", "tests/step_{step:02d}_result.txt"), step
+    )
     result_path = f"stacks/{stack}/{validation_output}"
     if not os.path.exists(result_path):
         raise RuntimeError(f"Fichier de résultat manquant : {result_path}")
@@ -451,7 +517,9 @@ def check_pr(args: argparse.Namespace) -> None:
     if first_line.startswith("PENDING"):
         raise RuntimeError(f"Tests non executes. Mettez a jour {result_path}")
     if not first_line.startswith(tuple(pass_markers)):
-        raise RuntimeError(f"Premiere ligne utile doit commencer par {pass_markers} dans {result_path}")
+        raise RuntimeError(
+            f"Premiere ligne utile doit commencer par {pass_markers} dans {result_path}"
+        )
 
     # Attestation légère : exige une section --- Summary ---
     if "--- Summary ---" not in content:
@@ -463,7 +531,9 @@ def check_pr(args: argparse.Namespace) -> None:
         print(f"Verification statique : {check}")
         subprocess.run(check, shell=True, check=True, cwd=f"stacks/{stack}")
 
-    print(f"Etape {step:02d} OK — artifacts presents, attestation et verifications statiques conformes")
+    print(
+        f"Etape {step:02d} OK — artifacts presents, attestation et verifications statiques conformes"
+    )
 
 
 def post_pr_comment(pr_number: int, body: str, key: str = "") -> None:
@@ -473,7 +543,11 @@ def post_pr_comment(pr_number: int, body: str, key: str = "") -> None:
         comments = gh_get(f"repos/{REPO}/issues/{pr_number}/comments")
         for c in comments:
             if marker in c.get("body", ""):
-                _gh("PATCH", f"repos/{REPO}/issues/comments/{c['id']}", {"body": full_body})
+                _gh(
+                    "PATCH",
+                    f"repos/{REPO}/issues/comments/{c['id']}",
+                    {"body": full_body},
+                )
                 return
     gh_post(f"repos/{REPO}/issues/{pr_number}/comments", {"body": full_body})
 
@@ -509,7 +583,11 @@ def review_adr(args: argparse.Namespace) -> None:
     adr = load_text(adr_path)
     user_prompt = f"ADR à reviewer :\n\n{adr}"
     review = llm.chat(prompt, user_prompt)
-    post_pr_comment(pr_number, f"## Review Architecte — Étape {step:02d}\n\n{review}", f"review-adr-{pr_number}")
+    post_pr_comment(
+        pr_number,
+        f"## Review Architecte — Étape {step:02d}\n\n{review}",
+        f"review-adr-{pr_number}",
+    )
     print(f"Review ADR postée sur PR #{pr_number}")
 
 
@@ -532,7 +610,9 @@ def sre_review(args: argparse.Namespace) -> None:
     if step_info is None:
         raise RuntimeError(f"Étape {step} introuvable")
 
-    result_path = f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
+    result_path = (
+        f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
+    )
     final_adr = f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md"
     if not os.path.exists(result_path) or not os.path.exists(final_adr):
         print(f"Artefacts incomplets pour l'étape {step:02d}, SRE review ignorée")
@@ -561,17 +641,36 @@ def sre_review(args: argparse.Namespace) -> None:
         f"Artefacts d'infra :\n{manifests}"
     )
     review = llm.chat(prompt, user_prompt)
-    post_pr_comment(pr_number, f"## Review SRE — Étape {step:02d}\n\n{review}", f"review-sre-{pr_number}")
+    post_pr_comment(
+        pr_number,
+        f"## Review SRE — Étape {step:02d}\n\n{review}",
+        f"review-sre-{pr_number}",
+    )
     print(f"Review SRE postée sur PR #{pr_number}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Orchestrateur agnostique du learning platform")
-    parser.add_argument("--action", required=True,
-                        choices=["generate-mission", "build-dashboard-data", "check-pr", "review-adr", "sre-review"])
-    parser.add_argument("--output", help="Chemin du fichier de sortie (build-dashboard-data)")
+    parser = argparse.ArgumentParser(
+        description="Orchestrateur agnostique du learning platform"
+    )
+    parser.add_argument(
+        "--action",
+        required=True,
+        choices=[
+            "generate-mission",
+            "build-dashboard-data",
+            "check-pr",
+            "review-adr",
+            "sre-review",
+        ],
+    )
+    parser.add_argument(
+        "--output", help="Chemin du fichier de sortie (build-dashboard-data)"
+    )
     parser.add_argument("--stack", help="Nom de la stack (détection auto si omis)")
-    parser.add_argument("--pr-head-ref", help="Nom de la branche PR (check-pr, review-adr, sre-review)")
+    parser.add_argument(
+        "--pr-head-ref", help="Nom de la branche PR (check-pr, review-adr, sre-review)"
+    )
     args = parser.parse_args()
 
     if args.action == "generate-mission":
