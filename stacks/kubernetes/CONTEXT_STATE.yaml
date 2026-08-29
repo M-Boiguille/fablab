@@ -1,16 +1,24 @@
-current_step: 2
+current_step: 3
 total_steps: 16
 stack: kubernetes
 status: in_progress
-context_capsule: Isolation logique via 4 namespaces (dev, staging, prod, tools) avec
-  labels standardisés. Clusters séparés rejetés pour coût, namespace unique pour risques.
-  Validation automatisée kubectl réussie. Base posée pour RBAC et quotas.
+context_capsule: 'RBAC implémenté via ClusterRoles+RoleBindings pour mutualiser dev/staging,
+  Roles namespace pour QA/SRE prod, ClusterRoleBinding pour ressources cluster. Groupes
+  SSO comme subjects, CI/CD sans accès prod. Trade-off : simplicité DRY vs risque
+  partagé entre environnements homologation.'
 key_decisions:
 - 4 namespaces par environnement (dev, staging, prod, tools) avec labels standardisés
   (environment, team, managed-by)
 - Rejet clusters séparés (coût/complexité) et namespace unique (aucune isolation)
 - Validation automatisée via kubectl pour reproductibilité
+- ClusterRole + RoleBindings pour Dev et CI/CD (DRY sur dev/staging)
+- Roles namespace distincts pour QA (lecture seule staging) et SRE applicatif (prod)
+- ClusterRoleBinding séparé pour SRE cluster (nodes, persistentvolumes)
+- Groupes SSO comme subjects pour révocation centralisée
+- ServiceAccounts CI/CD dédiés par environnement, aucun accès prod
 pending_risks:
 - Prolifération de namespaces non gouvernés à l'avenir
 - Namespace mal configuré peut exposer des ressources sensibles
-last_updated: '2026-08-28T22:15:11.504987Z'
+- Dérive potentielle des permissions CI/CD vers prod (automatisation tentante)
+- 'Risque partagé : modification ClusterRole impacte dev et staging simultanément'
+last_updated: '2026-08-29T19:13:13.139096Z'
