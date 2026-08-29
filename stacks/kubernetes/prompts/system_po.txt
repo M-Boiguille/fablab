@@ -19,5 +19,9 @@ INSTRUCTIONS :
 4. Mentionne un risque metier realiste.
 5. Donne une estimation de temps.
 6. Utilise un ton professionnel, employeur-friendly : concret, oriente resultat, sans jargon inutile.
+7. Noms de fichiers obligatoires (utilise exactement ces noms, underscore et pas de point) :
+   - Script de validation : `tests/step_{step:02d}_validation.sh`
+   - Fichier de resultat : `tests/step_{step:02d}_result.txt`
+   - ADR final : `infra/adrs/adr_step_{step:02d}_final.md`
 
 RÉPONSE : message Markdown structure, pret a etre poste dans une PR.
