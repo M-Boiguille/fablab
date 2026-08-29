@@ -1,4 +1,3 @@
-# verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
 # =====
 # ===== DEV
 # =====
@@ -43,7 +42,7 @@ rules:
   verbs: ["get", "watch", "list", "create", "update", "patch"]
 - apiGroups: ["rbac.authorization.k8s.io"] 
   resources: ["roles", "rolebindings"]
-  verbs: ["get", "list", "watch"]
+  verbs: ["get"]
 ---
 # =====
 # ===== QA
@@ -70,10 +69,10 @@ metadata:
 rules:
 - apiGroups: [""] 
   resources: ["pods", "pods/log", "services", "configmaps"]
-  verbs: ["get", "watch", "list"]
+  verbs: ["get"]
 - apiGroups: ["apps"] 
   resources: ["deployments"]
-  verbs: ["get", "watch", "list"]
+  verbs: ["get"]
 ---
 # =====
 # ===== SRE
@@ -99,12 +98,9 @@ metadata:
   name: sre
 rules:
 - apiGroups: [""] 
-  resources: ["pods", "pods/exec", "pods/resize"]
-  verbs: ["get", "watch", "list", "delete"]
+  resources: ["pods", "pods/exec"]
+  verbs: ["get", "watch", "list", "delete", "create"]
 - apiGroups: [""] 
-  resources: ["pods/exec"]
-  verbs: ["create"]
-- apiGroups: [""]
   resources: ["events", "resourcequotas"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["apps"] 
@@ -115,10 +111,9 @@ rules:
 # ===== CLUSTER ROLE SRE
 # =====
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: sre-cluster-prod
-  namespace: prod
 subjects:
 - kind: Group
   name: sre-grp
@@ -135,7 +130,7 @@ metadata:
 rules:
 - apiGroups: [""] 
   resources: ["nodes", "persistentvolumes"]
-  verbs: ["get", "watch", "list"]
+  verbs: ["get"]
 ---
 # =====
 # ===== SERVICE ACCOUNT CI/CD

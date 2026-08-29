@@ -1,0 +1,47 @@
+=============================================
+   VALIDATION RBAC - EXERCICE 1 (CKA)        
+=============================================
+
+[1;33m--- TEST DEVELOPER (group: developer-grp) ---[0m
+[0;32mPASS[0m | developer-grp (developer-grp) peut get pods dans dev
+[0;32mPASS[0m | developer-grp (developer-grp) peut create deployments.apps dans dev
+[0;32mPASS[0m | developer-grp (developer-grp) peut update services dans dev
+[0;32mPASS[0m | developer-grp (developer-grp) peut patch configmaps dans dev
+[0;32mPASS[0m | developer-grp (developer-grp) peut get secrets dans staging
+[0;32mPASS[0m | developer-grp (developer-grp) NE PEUT PAS delete pods dans dev (conforme)
+[0;32mPASS[0m | developer-grp (developer-grp) NE PEUT PAS delete pods dans staging (conforme)
+[0;32mPASS[0m | developer-grp (developer-grp) NE PEUT PAS get pods dans prod (conforme)
+[0;32mPASS[0m | developer-grp (developer-grp) NE PEUT PAS get pods dans tools (conforme)
+[0;32mPASS[0m | developer-grp (developer-grp) NE PEUT PAS create roles.rbac.authorization.k8s.io dans dev (conforme)
+
+[1;33m--- TEST QA (group: qa-grp) ---[0m
+[0;32mPASS[0m | qa-grp (qa-grp) peut get pods dans staging
+[0;32mPASS[0m | qa-grp (qa-grp) peut get pods/log dans staging
+[0;32mPASS[0m | qa-grp (qa-grp) peut get services dans staging
+[0;32mPASS[0m | qa-grp (qa-grp) peut get configmaps dans staging
+[0;32mPASS[0m | qa-grp (qa-grp) peut get deployments.apps dans staging
+[0;32mPASS[0m | qa-grp (qa-grp) NE PEUT PAS create pods dans staging (conforme)
+[0;32mPASS[0m | qa-grp (qa-grp) NE PEUT PAS delete services dans staging (conforme)
+[0;32mPASS[0m | qa-grp (qa-grp) NE PEUT PAS update deployments.apps dans staging (conforme)
+
+[1;33m--- TEST SRE (group: sre-grp) ---[0m
+[0;32mPASS[0m | sre-grp (sre-grp) peut delete pods dans prod
+[0;32mPASS[0m | sre-grp (sre-grp) peut create pods/exec dans prod
+[0;32mPASS[0m | sre-grp (sre-grp) peut get events dans prod
+[0;32mPASS[0m | sre-grp (sre-grp) peut delete resourcequotas dans prod
+[0;32mPASS[0m | sre-grp (sre-grp) NE PEUT PAS create roles.rbac.authorization.k8s.io dans prod (conforme)
+[0;32mPASS[0m | sre-grp (sre-grp) peut get nodes (cluster)
+[0;32mPASS[0m | sre-grp (sre-grp) peut get persistentvolumes (cluster)
+
+[1;33m--- TEST CI/CD (ServiceAccounts) ---[0m
+[0;32mPASS[0m | system:serviceaccount:dev:ci-cd-dev () peut create deployments.apps dans dev
+[0;32mPASS[0m | system:serviceaccount:dev:ci-cd-dev () peut update services dans dev
+[0;32mPASS[0m | system:serviceaccount:staging:ci-cd-staging () peut create deployments.apps dans staging
+[0;32mPASS[0m | system:serviceaccount:staging:ci-cd-staging () peut update services dans staging
+[0;32mPASS[0m | system:serviceaccount:dev:ci-cd-dev () NE PEUT PAS get pods dans dev (conforme)
+[0;32mPASS[0m | system:serviceaccount:dev:ci-cd-dev () NE PEUT PAS create deployments.apps dans prod (conforme)
+[0;32mPASS[0m | system:serviceaccount:staging:ci-cd-staging () NE PEUT PAS delete services dans staging (conforme)
+
+=============================================
+   FIN DE LA VALIDATION                       
+=============================================
