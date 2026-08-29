@@ -1,0 +1,176 @@
+# =====
+# ===== DEV
+# =====
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer-staging
+  namespace: staging
+subjects:
+- kind: Group
+  name: developer-grp
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: developer
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developer-dev
+  namespace: dev
+subjects:
+- kind: Group
+  name: developer-grp
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: developer
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: developer
+rules:
+- apiGroups: [""] 
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "watch", "list", "create", "update", "patch"]
+- apiGroups: ["apps"] 
+  resources: ["deployments"]
+  verbs: ["get", "watch", "list", "create", "update", "patch"]
+- apiGroups: ["rbac.authorization.k8s.io"] 
+  resources: ["roles", "rolebindings"]
+  verbs: ["get"]
+---
+# =====
+# ===== QA
+# =====
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: qa-staging
+  namespace: staging
+subjects:
+- kind: Group
+  name: qa-grp
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: qa
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: staging
+  name: qa
+rules:
+- apiGroups: [""] 
+  resources: ["pods", "pods/log", "services", "configmaps"]
+  verbs: ["get"]
+- apiGroups: ["apps"] 
+  resources: ["deployments"]
+  verbs: ["get"]
+---
+# =====
+# ===== SRE
+# =====
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sre-prod
+  namespace: prod
+subjects:
+- kind: Group
+  name: sre-grp
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: sre
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: prod
+  name: sre
+rules:
+- apiGroups: [""] 
+  resources: ["pods", "pods/exec"]
+  verbs: ["get", "watch", "list", "delete", "create"]
+- apiGroups: [""] 
+  resources: ["events", "resourcequotas"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"] 
+  resources: ["*"]
+  verbs: ["*"]
+---
+# =====
+# ===== CLUSTER ROLE SRE
+# =====
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sre-cluster-prod
+subjects:
+- kind: Group
+  name: sre-grp
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: sre
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sre
+rules:
+- apiGroups: [""] 
+  resources: ["nodes", "persistentvolumes"]
+  verbs: ["get"]
+---
+# =====
+# ===== SERVICE ACCOUNT CI/CD
+# =====
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-cd-serviceaccount-staging
+  namespace: staging
+subjects:
+- kind: ServiceAccount
+  name: ci-cd-staging
+  namespace: staging
+roleRef:
+  kind: ClusterRole
+  name: ci-cd
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-cd-serviceaccount-dev
+  namespace: dev
+subjects:
+- kind: ServiceAccount
+  name: ci-cd-dev
+  namespace: dev
+roleRef:
+  kind: ClusterRole
+  name: ci-cd
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ci-cd
+rules:
+- apiGroups: [""] 
+  resources: ["services"]
+  verbs: ["get", "watch", "list", "update", "create"]
+- apiGroups: ["apps"] 
+  resources: ["deployments"]
+  verbs: ["get", "watch", "list", "update", "create"]
