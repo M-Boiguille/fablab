@@ -37,6 +37,19 @@ spec:
       containers:
       - name: nginx
         image: nginx:1.30.4@sha256:09cc2702709e6388d979d8030e3ab4eb1ceb699b2dced26d7543e872a822e823
+# =========== code temporaire - probe test
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            sleep 2
+            touch /tmp/probe.html
+            sleep 2
+            rm -rf /tmp/probe.html
+            sleep 2
+            touch /tmp/probe.html
+            sleep 10
+            exec nginx -g "daemon off;"
+# =========== code temporaire - probe test
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -52,18 +65,18 @@ spec:
           httpGet:
             path: /health
             port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 10
-          timeoutSeconds: 2
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 80
-          initialDelaySeconds: 3
+          initialDelaySeconds: 1
           periodSeconds: 5
           timeoutSeconds: 2
-          failureThreshold: 3
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /hello
+            port: 80
+          initialDelaySeconds: 1
+          periodSeconds: 1
+          timeoutSeconds: 2
+          failureThreshold: 5
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
