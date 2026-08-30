@@ -1,13 +1,12 @@
 =========================================
-   STEP 03 - VALIDATION SCRIPT           
+--   STEP 03 - VALIDATION SCRIPT           
 =========================================
 
-Namespace: dev
-Deployment: nginx
-Service: nginx-service
+# Namespace: dev
+# Deployment: nginx
+# Service: nginx-service
 
 --- Testing Deployment ---
-kubectl get deployment 'nginx' -n 'dev' -o name
 PASS | Deployment 'nginx' exists in namespace 'dev'
 PASS | Deployment has 3 desired replicas
 PASS | Deployment has 3 ready replicas
@@ -25,9 +24,8 @@ PASS | Service targetPort is 80
 PASS | Service has 3 populated endpoints
 
 =========================================
-   VALIDATION COMPLETE                   
+--   VALIDATION COMPLETE                   
 =========================================
 
-PASS: 11
-FAIL: 0
-
+# PASS: 11
+# FAIL: 0

@@ -48,13 +48,13 @@ function check {
 }
 
 echo "========================================="
-echo "   STEP 03 - VALIDATION SCRIPT           "
+echo "--   STEP 03 - VALIDATION SCRIPT           "
 echo "========================================="
 echo ""
 
-echo "Namespace: $NAMESPACE"
-echo "Deployment: $DEPLOYMENT"
-echo "Service: $SERVICE"
+echo "# Namespace: $NAMESPACE"
+echo "# Deployment: $DEPLOYMENT"
+echo "# Service: $SERVICE"
 echo ""
 
 # ============================================================
@@ -144,22 +144,20 @@ fi
 
 echo ""
 echo "========================================="
-echo "   VALIDATION COMPLETE                   "
+echo "--   VALIDATION COMPLETE                   "
 echo "========================================="
 echo ""
 
-echo "PASS: $PASS_COUNT"
-echo "FAIL: $FAIL_COUNT"
+echo "# PASS: $PASS_COUNT"
+echo "# FAIL: $FAIL_COUNT"
 
 echo ""
-echo "Result written to: $RESULT_FILE"
-
 if [ "$FAIL_COUNT" -eq 0 ]; then
-  echo "PASS | Step 03 validation successful" >>"$RESULT_FILE"
+  echo "# PASS | Step 03 validation successful" >>"$RESULT_FILE"
   echo -e "${GREEN}OVERALL: PASS${NC}"
   exit 0
 else
-  echo "FAIL | Step 03 validation failed" >>"$RESULT_FILE"
+  echo "# FAIL | Step 03 validation failed" >>"$RESULT_FILE"
   echo -e "${RED}OVERALL: FAIL${NC}"
   exit 1
 fi
