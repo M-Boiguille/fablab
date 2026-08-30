@@ -14,11 +14,11 @@ data:
             listen 80;
 
             location = /health {
-                root /tmp;
+                root /;
             }
 
             location = /hello {
-                root /tmp;
+                root /;
             }
 
             location / {
