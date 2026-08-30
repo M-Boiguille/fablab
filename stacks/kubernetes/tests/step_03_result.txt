@@ -1,0 +1,33 @@
+=========================================
+   STEP 03 - VALIDATION SCRIPT           
+=========================================
+
+Namespace: dev
+Deployment: nginx
+Service: nginx-service
+
+--- Testing Deployment ---
+kubectl get deployment 'nginx' -n 'dev' -o name
+PASS | Deployment 'nginx' exists in namespace 'dev'
+PASS | Deployment has 3 desired replicas
+PASS | Deployment has 3 ready replicas
+PASS | Deployment has RollingUpdate strategy
+PASS | Deployment has maxUnavailable=1
+PASS | Deployment has maxSurge=2
+
+--- Testing Service ---
+PASS | Service 'nginx-service' exists in namespace 'dev'
+PASS | Service is of type ClusterIP
+PASS | Service selector matches Deployment label
+PASS | Service targetPort is 80
+
+--- Testing Service Endpoints ---
+PASS | Service has 3 populated endpoints
+
+=========================================
+   VALIDATION COMPLETE                   
+=========================================
+
+PASS: 11
+FAIL: 0
+

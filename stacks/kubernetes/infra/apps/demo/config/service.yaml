@@ -1,0 +1,17 @@
+# https://kubernetes.io/docs/concepts/services-networking/service/
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: dev
+spec:
+  selector:
+    app: nginx
+  type: ClusterIP
+  ports:
+  - name: nginx-http
+    protocol: 
+    port: 80
+    targetPort: 8080
+---
+
