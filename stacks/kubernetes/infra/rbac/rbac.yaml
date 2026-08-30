@@ -102,7 +102,10 @@ rules:
   verbs: ["get", "watch", "list", "delete", "create"]
 - apiGroups: [""] 
   resources: ["events", "resourcequotas"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: [""] 
+  resources: ["events"]
+  verbs: ["delete"]
 - apiGroups: ["apps"] 
   resources: ["*"]
   verbs: ["*"]
@@ -168,6 +171,9 @@ kind: ClusterRole
 metadata:
   name: ci-cd
 rules:
+- apiGroups: [""] 
+  resources: ["pods"]
+  verbs: ["get"]
 - apiGroups: [""] 
   resources: ["services"]
   verbs: ["get", "watch", "list", "update", "create"]
