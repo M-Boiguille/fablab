@@ -1,19 +1,33 @@
-PASS
---- Summary ---
-Step 03 validation successful: 11 passed, 0 failed.
-All checks passed for Deployment nginx, Service nginx-service, and 3 endpoints in namespace dev.
+=========================================
+--   STEP 03 - VALIDATION SCRIPT           
+=========================================
 
-PASS | Deployment 'nginx' exists in namespace 'dev'
-PASS | Deployment has 3 desired replicas
-PASS | Deployment has 3 ready replicas
-PASS | Deployment has RollingUpdate strategy
-PASS | Deployment has maxUnavailable=1
-PASS | Deployment has maxSurge=2
-PASS | Service 'nginx-service' exists in namespace 'dev'
-PASS | Service is of type ClusterIP
-PASS | Service selector matches Deployment label
-PASS | Service targetPort is 80
-PASS | Service has 3 populated endpoints
+# Namespace: dev
+# Deployment: nginx
+# Service: nginx-service
+
+--- Testing Deployment ---
+[0;32mPASS[0m | Deployment 'nginx' exists in namespace 'dev'
+[0;32mPASS[0m | Deployment has 3 desired replicas
+[0;32mPASS[0m | Deployment has 3 ready replicas
+[0;32mPASS[0m | Deployment has RollingUpdate strategy
+[0;32mPASS[0m | Deployment has maxUnavailable=1
+[0;32mPASS[0m | Deployment has maxSurge=2
+
+--- Testing Service ---
+[0;32mPASS[0m | Service 'nginx-service' exists in namespace 'dev'
+[0;32mPASS[0m | Service is of type ClusterIP
+[0;32mPASS[0m | Service selector matches Deployment label
+[0;32mPASS[0m | Service targetPort is 80
+
+--- Testing Service Endpoints ---
+[0;32mPASS[0m | Service has 3 populated endpoints
+
+=========================================
+--   VALIDATION COMPLETE                   
+=========================================
+
 # PASS: 11
 # FAIL: 0
-# PASS | Step 03 validation successful
+
+[0;32mOVERALL: PASS[0m
