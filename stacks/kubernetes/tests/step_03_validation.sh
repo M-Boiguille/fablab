@@ -95,7 +95,7 @@ check \
 
 check \
   "Deployment has imagePullPolicy IfNotPresent" \
-  "kubectl get deployment '$DEPLOYMENT' -n '$NAMESPACE' -o jsonpath='{.spec.containers[0].imagePullPolicy}'" \
+  "kubectl get deployment '$DEPLOYMENT' -n '$NAMESPACE' -o jsonpath='{.spec.template.spec.containers[0].imagePullPolicy}'" \
   "IfNotPresent"
 
 # ============================================================

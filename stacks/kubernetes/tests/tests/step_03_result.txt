@@ -1,18 +1,19 @@
 PASS
 --- Summary ---
-Step 03 validation successful: 11 passed, 0 failed.
+Step 03 validation successful: 12 passed, 0 failed.
 All checks passed for Deployment nginx, Service nginx-service, and 3 endpoints in namespace dev.
 PASS | Deployment 'nginx' exists in namespace 'dev'
 PASS | Deployment has 3 desired replicas
 PASS | Deployment has 3 ready replicas
 PASS | Deployment has RollingUpdate strategy
 PASS | Deployment has maxUnavailable=1
-PASS | Deployment has maxSurge=2
+PASS | Deployment has maxSurge=1
+PASS | Deployment has imagePullPolicy IfNotPresent
 PASS | Service 'nginx-service' exists in namespace 'dev'
 PASS | Service is of type ClusterIP
 PASS | Service selector matches Deployment label
 PASS | Service targetPort is 80
 PASS | Service has 3 populated endpoints
-# PASS: 11
+# PASS: 12
 # FAIL: 0
 # PASS | Step 03 validation successful
