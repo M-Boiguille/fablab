@@ -625,13 +625,18 @@ def sre_review(args: argparse.Namespace) -> None:
         print(f"Tests non PASS pour l'etape {step:02d}, SRE review ignoree")
         return
 
-    manifests_dir = f"stacks/{stack}/infra/manifests"
+    infra_dir = f"stacks/{stack}/infra"
     manifests = ""
-    if os.path.isdir(manifests_dir):
-        for name in sorted(os.listdir(manifests_dir)):
-            path = os.path.join(manifests_dir, name)
-            if os.path.isfile(path):
-                manifests += f"\n--- {name} ---\n" + load_text(path)
+    if os.path.isdir(infra_dir):
+        for root, _dirs, files in os.walk(infra_dir):
+            if "adrs" in os.path.normpath(root).split(os.sep):
+                continue
+            for name in sorted(files):
+                if name in (".gitkeep", ".gitignore") or not name.endswith(('.yaml', '.yml')):
+                    continue
+                path = os.path.join(root, name)
+                rel_path = os.path.relpath(path, infra_dir)
+                manifests += f"\n--- {rel_path} ---\n" + load_text(path)
 
     adr = load_text(final_adr)
     ctx = build_context(stack, step, step_info, state, roadmap, test_strategy)

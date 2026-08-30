@@ -1,0 +1,23 @@
+# https://kubernetes.io/docs/concepts/services-networking/service/
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: dev
+  labels:
+    app: nginx
+    environment: dev
+    team: platform
+    managed-by: terraform
+spec:
+  selector:
+    app: nginx
+  type: ClusterIP
+  ports:
+  - name: nginx-http
+    protocol: TCP
+    port: 8080
+    targetPort: 80
+  publishNotReadyAddresses: false
+---
+

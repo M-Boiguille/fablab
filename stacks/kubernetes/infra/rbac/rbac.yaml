@@ -29,6 +29,10 @@ roleRef:
   name: developer
   apiGroup: rbac.authorization.k8s.io
 ---
+# NOTE: developer is a ClusterRole bound to dev/staging via RoleBindings.
+# This is intentional per step 02 mission: one reusable role applied to multiple
+# non-production namespaces. In production, use namespace-scoped Roles.
+# NOTE: 'secrets' is included in resources as explicitly requested by step 02 mission.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
