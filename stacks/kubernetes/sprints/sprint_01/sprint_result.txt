@@ -1,0 +1,3 @@
+PASS — Sprint 01 complété pour kubernetes.
+--- Summary ---
+Global PASS
