@@ -1,0 +1,1 @@
+k exec --namespaces dev deploy/nginx -- sh -c "sleep 2; touch /usr/share/nginx/html/index.html; sleep 2; rm -rf /usr/share/nginx/html/index.html; sleep 2; touch /usr/share/nginx/html/index.html; sleep 10"
