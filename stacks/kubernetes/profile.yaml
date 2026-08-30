@@ -1,0 +1,112 @@
+version: 1
+last_updated: 2026-08-30T12:17:55.502523+00:00Z
+global:
+  overall_level: 0.2
+  current_sprint: 2
+skills:
+  kubernetes:
+    pods:
+      level: 0.1
+      confidence: 0.09
+      last_used: null
+      error_patterns: []
+    deployments:
+      level: 0.15
+      confidence: 0.14
+      last_used: null
+      error_patterns: []
+    services:
+      level: 0.2
+      confidence: 0.18
+      last_used: null
+      error_patterns: []
+    configmaps:
+      level: 0.25
+      confidence: 0.23
+      last_used: null
+      error_patterns: []
+    secrets:
+      level: 0.3
+      confidence: 0.27
+      last_used: null
+      error_patterns: []
+  terraform:
+    state_management:
+      level: 0.1
+      confidence: 0.09
+      last_used: null
+      error_patterns: []
+    modules:
+      level: 0.15
+      confidence: 0.14
+      last_used: null
+      error_patterns: []
+    workspaces:
+      level: 0.2
+      confidence: 0.18
+      last_used: null
+      error_patterns: []
+  python:
+    scripting:
+      level: 0.1
+      confidence: 0.09
+      last_used: null
+      error_patterns: []
+    data_structures:
+      level: 0.15
+      confidence: 0.14
+      last_used: null
+      error_patterns: []
+    testing:
+      level: 0.2
+      confidence: 0.18
+      last_used: null
+      error_patterns: []
+  network:
+    osi_model:
+      level: 0.1
+      confidence: 0.09
+      last_used: null
+      error_patterns: []
+    tcp_ip:
+      level: 0.15
+      confidence: 0.14
+      last_used: null
+      error_patterns: []
+    dns:
+      level: 0.2
+      confidence: 0.18
+      last_used: null
+      error_patterns: []
+  linux:
+    filesystem:
+      level: 0.1
+      confidence: 0.09
+      last_used: null
+      error_patterns: []
+    permissions:
+      level: 0.15
+      confidence: 0.14
+      last_used: null
+      error_patterns: []
+    processes:
+      level: 0.2
+      confidence: 0.18
+      last_used: null
+      error_patterns: []
+  softskills:
+    communication:
+      level: 0.1
+      confidence: 0.09
+      last_used: null
+      error_patterns: []
+    troubleshooting:
+      level: 0.15
+      confidence: 0.14
+      last_used: null
+      error_patterns: []
+    documentation:
+      level: 0.2
+      confidence: 0.18
+      last_used: null
+      error_patterns: []

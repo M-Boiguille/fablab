@@ -1,0 +1,10 @@
+PASS 0.00s
+---
+STDOUT:
+Vérification step 01...
+PASS — Step 01 validée.
+
+STDERR:
+
+--- Summary ---
+PASS pour step 01
