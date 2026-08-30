@@ -26,6 +26,10 @@ spec:
         kubectl.kubernetes.io/default-container:  nginx
       labels:
         app: nginx
+        environment: dev
+        team: platform
+        version: "1.30.4"
+        managed-by: terraform
     spec:
       securityContext:
         runAsNonRoot: true
@@ -33,7 +37,7 @@ spec:
       containers:
       - name: nginx
         image: nginx:1.30.4@sha256:09cc2702709e6388d979d8030e3ab4eb1ceb699b2dced26d7543e872a822e823
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         resources:
           requests:
             cpu: 50m

@@ -29,12 +29,12 @@ strategy:
   type: RollingUpdate
   rollingUpdate:
     maxUnavailable: 1
-    maxSurge: 2
+    maxSurge: 1
 ```
 
-Avec trois replicas, `maxUnavailable: 1` autorise au maximum un Pod indisponible pendant le rollout. `maxSurge: 2` autorise temporairement jusqu'à deux Pods supplémentaires par rapport au nombre de replicas souhaité.
+Avec trois replicas, `maxUnavailable: 1` autorise au maximum un Pod indisponible pendant le rollout. `maxSurge: 1` autorise temporairement un seul Pod supplémentaire par rapport au nombre de replicas souhaites.
 
-Ce choix privilégie la disponibilité et la souplesse du rollout, au prix d'une consommation temporairement supérieure en ressources.
+Ce choix privilegie la disponibilité tout en limitant la consommation temporaire de ressources.
 
 ### Service
 
@@ -140,9 +140,9 @@ Le `ConfigMap` a été préféré afin de conserver cette séparation.
 
 ### Disponibilité vs consommation de ressources
 
-Le choix de `maxUnavailable: 1` et `maxSurge: 2` favorise la disponibilité pendant les mises à jour et permet à Kubernetes de disposer d'une marge pour créer les nouveaux Pods.
+Le choix de `maxUnavailable: 1` et `maxSurge: 1` favorise la disponibilité pendant les mises à jour tout en limitant la consommation temporaire de ressources.
 
-En contrepartie, jusqu'à cinq Pods peuvent temporairement être présents pour trois replicas souhaités. Le cluster doit donc disposer de suffisamment de CPU et de mémoire pour absorber cette consommation temporaire.
+En contrepartie, jusqu'à quatre Pods peuvent temporairement etre presents pour trois replicas souhaites. Le cluster doit donc disposer d'une marge suffisante en CPU et en memoire pour absorber cette consommation temporaire.
 
 ### Ressources du conteneur
 
@@ -174,7 +174,7 @@ L'image `nginx:1.30.4` est epinglee par digest :
 nginx:1.30.4@sha256:09cc2702709e6388d979d8030e3ab4eb1ceb699b2dced26d7543e872a822e823
 ```
 
-`imagePullPolicy: Always` est utilise en dev pour garantir la fraicheur de l'image. En production, on utilisera un registre prive approuve et des tags immuables ou des digests verifies.
+`imagePullPolicy: IfNotPresent` est utilise en dev avec un digest epingle : l'image est utilisee si deja presente, sinon elle est tiree. Le digest garantit l'immutabilite. En production, on utilisera un registre prive approuve et des tags immuables.
 
 ### Securite du conteneur
 
