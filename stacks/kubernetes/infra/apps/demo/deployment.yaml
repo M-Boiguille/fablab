@@ -42,11 +42,11 @@ spec:
         args:
           - |
             sleep 2
-            touch /tmp/probe.html
+            touch /tmp/index.html
             sleep 2
-            rm -rf /tmp/probe.html
+            rm -rf /tmp/index.html
             sleep 2
-            touch /tmp/probe.html
+            touch /tmp/index.html
             sleep 10
             exec nginx -g "daemon off;"
 # =========== code temporaire - probe test
