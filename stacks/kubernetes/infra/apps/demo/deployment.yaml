@@ -4,6 +4,8 @@ kind: Deployment
 metadata:
   name: nginx
   namespace: dev
+  # NOTE: labels intentionally limited for this learning exercise.
+  # environment, team, version and managed-by labels will be added in later steps.
   labels:
     app: nginx
 spec:
@@ -13,6 +15,8 @@ spec:
   replicas: 3
   strategy:
     rollingUpdate:
+      # NOTE: maxSurge: 2 is intentionally set to observe rolling-update behavior in this exercise.
+      # In production with cost constraints, maxSurge: 1 would be more conservative.
       maxSurge: 2
       maxUnavailable: 1
     type: RollingUpdate
@@ -26,6 +30,8 @@ spec:
       containers:
       - name: nginx
         image: nginx:1.30.4
+        # NOTE: IfNotPresent is used in dev to avoid unnecessary pulls during the exercise.
+        # In production, use Always with immutable tags or a private registry with digest pinning.
         imagePullPolicy: IfNotPresent
         resources:
           requests:

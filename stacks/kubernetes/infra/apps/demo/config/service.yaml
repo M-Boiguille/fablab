@@ -4,6 +4,8 @@ kind: Service
 metadata:
   name: nginx-service
   namespace: dev
+  # NOTE: labels intentionally omitted to keep this exercise focused.
+  # environment/team/version labels will be added in later steps.
 spec:
   selector:
     app: nginx
