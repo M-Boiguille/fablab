@@ -1,11 +1,10 @@
-current_step: 3
+current_step: 4
 total_steps: 16
 stack: kubernetes
 status: in_progress
-context_capsule: 'RBAC implémenté via ClusterRoles+RoleBindings pour mutualiser dev/staging,
-  Roles namespace pour QA/SRE prod, ClusterRoleBinding pour ressources cluster. Groupes
-  SSO comme subjects, CI/CD sans accès prod. Trade-off : simplicité DRY vs risque
-  partagé entre environnements homologation.'
+context_capsule: Déploiement Nginx avec 3 replicas, RollingUpdate (maxUnavailable:1,
+  maxSurge:1), Service ClusterIP, ConfigMap pour config, image épinglée par digest,
+  sécurité renforcée. Disponibilité privilégiée avec consommation temporaire de ressources.
 key_decisions:
 - 4 namespaces par environnement (dev, staging, prod, tools) avec labels standardisés
   (environment, team, managed-by)
@@ -16,9 +15,19 @@ key_decisions:
 - ClusterRoleBinding séparé pour SRE cluster (nodes, persistentvolumes)
 - Groupes SSO comme subjects pour révocation centralisée
 - ServiceAccounts CI/CD dédiés par environnement, aucun accès prod
+- Deployment avec 3 replicas et RollingUpdate pour disponibilité pendant mises à jour
+- Service ClusterIP (8080→80) pour exposition limitée au cluster
+- ConfigMap pour découpler config Nginx de l'image et du filesystem
+- Image épinglée par digest avec imagePullPolicy IfNotPresent
+- 'Contrôles de sécurité: runAsNonRoot, drop capabilities, allowPrivilegeEscalation:
+  false'
 pending_risks:
 - Prolifération de namespaces non gouvernés à l'avenir
 - Namespace mal configuré peut exposer des ressources sensibles
 - Dérive potentielle des permissions CI/CD vers prod (automatisation tentante)
 - 'Risque partagé : modification ClusterRole impacte dev et staging simultanément'
-last_updated: '2026-08-29T19:13:13.139096Z'
+- Dimensionnement des ressources basé sur estimations, à affiner avec observabilité
+  (étape 4)
+- Registre privé et signature Cosign reportés en production
+- PodDisruptionBudget non implémenté, nécessaire en production
+last_updated: '2026-08-30T03:47:40.549285Z'
