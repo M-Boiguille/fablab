@@ -158,6 +158,71 @@ Le choix de `ClusterIP` limite l'exposition directe de l'application au réseau 
 
 Le `ConfigMap` apporte une séparation claire entre l'image Nginx et sa configuration. En contrepartie, il faut gérer les mises à jour de la configuration et le redémarrage ou rollout des Pods lorsque cela est nécessaire pour que les modifications soient prises en compte.
 
+## Ajustements opérationnels et amendements des ADR précédentes
+
+Lors de la revue SRE de l'étape 03, plusieurs points ont ete souleves. Les decisions suivantes ont ete prises pour l'exercice, avec des notes de report en production.
+
+### Amendement de l'ADR step 02 — RBAC
+
+Le role `developer` (ClusterRole) conservant l'acces en ecriture aux `secrets` dans `dev` et `staging` reste conforme a la mission de l'etape 02. Cette decision est maintenue pour l'homologation, avec la connaissance qu'en production on privilegierait des `Role` namespace-scoped dedies et retirerait `secrets` du perimetre applicatif.
+
+### Image et supply chain
+
+L'image `nginx:1.30.4` est epinglee par digest :
+
+```text
+nginx:1.30.4@sha256:09cc2702709e6388d979d8030e3ab4eb1ceb699b2dced26d7543e872a822e823
+```
+
+`imagePullPolicy: Always` est utilise en dev pour garantir la fraicheur de l'image. En production, on utilisera un registre prive approuve et des tags immuables ou des digests verifies.
+
+### Securite du conteneur
+
+Les controles suivants sont appliques au Pod et au conteneur :
+
+- `runAsNonRoot: true`
+- `runAsUser: 101`
+- `fsGroup: 101`
+- `allowPrivilegeEscalation: false`
+- `capabilities: drop: - ALL`
+
+### Probes
+
+- `livenessProbe` et `readinessProbe` sur `/health` port `80`.
+- `livenessProbe` : `periodSeconds: 10`
+- `readinessProbe` : `periodSeconds: 5`
+
+### Reseau et Service
+
+- ConfigMap Nginx : `listen 80`
+- Service : `port: 8080`, `targetPort: 80`, `protocol: TCP`
+- `publishNotReadyAddresses: false` par defaut
+
+### Labels
+
+Les labels suivants sont appliques aux ressources :
+
+```yaml
+app: nginx
+environment: dev
+team: platform
+version: "1.30.4"
+managed-by: terraform
+```
+
+### RollingUpdate
+
+`maxSurge: 1` est retenu pour limiter la consommation temporaire de ressources, tout en maintenant la disponibilite.
+
+### Points non traites dans cet exercice
+
+Les elements suivants sont reconnus comme necessaires en production, mais reportes a des etapes ulterieures :
+
+- Registre prive / signature Cosign
+- PodDisruptionBudget
+- `readOnlyRootFilesystem` (necessite des volumes de cache et de logs)
+- Annotations de version sur le ConfigMap
+
 ## Références
 
 - CKA (KodeKloud)

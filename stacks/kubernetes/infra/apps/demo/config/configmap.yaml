@@ -1,9 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  annotations:
   name: nginx-config
   namespace: dev
+  labels:
+    app: nginx
+    environment: dev
+    team: platform
+    managed-by: terraform
 data:
   default.conf: |
         server {

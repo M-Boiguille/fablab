@@ -4,8 +4,11 @@ kind: Service
 metadata:
   name: nginx-service
   namespace: dev
-  # NOTE: labels intentionally omitted to keep this exercise focused.
-  # environment/team/version labels will be added in later steps.
+  labels:
+    app: nginx
+    environment: dev
+    team: platform
+    managed-by: terraform
 spec:
   selector:
     app: nginx
@@ -15,5 +18,6 @@ spec:
     protocol: TCP
     port: 8080
     targetPort: 80
+  publishNotReadyAddresses: false
 ---
 
