@@ -33,10 +33,10 @@ python scripts/learner_cli.py start --sprint 1
 
 Crée :
 
-- `stacks/<stack>/sprints/sprint_01/brief.md`
-- `stacks/<stack>/sprints/sprint_01/step_01/step_01_validation.sh` + `step_01_result.txt`
-- `stacks/<stack>/sprints/sprint_01/step_02/...`
-- `stacks/<stack>/sprints/sprint_01/step_03/...`
+- `sprints/sprint_01/brief.md`
+- `sprints/sprint_01/step_01/step_01_validation.sh` + `step_01_result.txt`
+- `sprints/sprint_01/step_02/...`
+- `sprints/sprint_01/step_03/...`
 
 ### `test`
 

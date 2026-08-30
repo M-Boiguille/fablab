@@ -17,4 +17,4 @@ _site/
 # Learner V0 local artifacts
 .chat_history.json
 stacks/*/profile.yaml
-stacks/*/sprints/
+sprints/

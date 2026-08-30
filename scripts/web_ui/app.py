@@ -62,7 +62,7 @@ if profile:
             else:
                 st.write("Aucune compétence enregistrée.")
 
-brief_path = f"stacks/{stack}/sprints/sprint_{int(sprint):02d}/brief.md"
+brief_path = f"sprints/sprint_{int(sprint):02d}/brief.md"
 if os.path.exists(brief_path):
     with open(brief_path, encoding="utf-8") as f:
         st.subheader("Brief du sprint")

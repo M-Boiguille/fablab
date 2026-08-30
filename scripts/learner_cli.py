@@ -57,7 +57,7 @@ def profile_path(stack: str) -> str:
 
 
 def sprint_dir(stack: str, sprint: int) -> str:
-    return f"stacks/{stack}/sprints/sprint_{sprint:02d}"
+    return f"sprints/sprint_{sprint:02d}"
 
 
 def step_dir(stack: str, sprint: int, step: int) -> str:
@@ -250,7 +250,11 @@ def cmd_chat(args: argparse.Namespace) -> None:
     )
     llm = find_llm()
     if not llm:
-        raise RuntimeError("Aucune clé LLM. Définis GEMINI_API_KEY ou DEEPSEEK_API_KEY.")
+        print(
+            "Aucune clé LLM configurée. Définis GEMINI_API_KEY ou DEEPSEEK_API_KEY.",
+            file=sys.stderr,
+        )
+        return
 
     history_path = os.path.join(os.getcwd(), ".chat_history.json")
     history = []
