@@ -89,9 +89,14 @@ check \
   "1"
 
 check \
-  "Deployment has maxSurge=2" \
+  "Deployment has maxSurge=1" \
   "kubectl get deployment '$DEPLOYMENT' -n '$NAMESPACE' -o jsonpath='{.spec.strategy.rollingUpdate.maxSurge}'" \
-  "2"
+  "1"
+
+check \
+  "Deployment has imagePullPolicy IfNotPresent" \
+  "kubectl get deployment '$DEPLOYMENT' -n '$NAMESPACE' -o jsonpath='{.spec.containers[0].imagePullPolicy}'" \
+  "IfNotPresent"
 
 # ============================================================
 # 2. SERVICE
