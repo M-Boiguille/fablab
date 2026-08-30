@@ -39,7 +39,7 @@ spec:
           name: nginx
         livenessProbe:
           httpGet:
-            path: /hello
+            path: /health
             port: 80
           initialDelaySeconds: 5
           periodSeconds: 10
