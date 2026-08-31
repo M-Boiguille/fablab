@@ -23,13 +23,39 @@ try:
 except Exception:
     LLMClient = None  # type: ignore
 
-DEFAULT_SKILLS: Dict[str, list] = {
-    "kubernetes": ["pods", "deployments", "services", "configmaps", "secrets"],
-    "terraform": ["state_management", "modules", "workspaces"],
-    "python": ["scripting", "data_structures", "testing"],
-    "network": ["osi_model", "tcp_ip", "dns"],
-    "linux": ["filesystem", "permissions", "processes"],
-    "softskills": ["communication", "troubleshooting", "documentation"],
+DEFAULT_SKILLS: Dict[str, Dict[str, float]] = {
+    "kubernetes": {
+        "pods": 0.83,
+        "deployments": 0.83,
+        "services": 0.83,
+        "configmaps": 0.83,
+        "secrets": 0.83,
+    },
+    "terraform": {
+        "state_management": 0.0,
+        "modules": 0.0,
+        "workspaces": 0.0,
+    },
+    "python": {
+        "scripting": 0.0,
+        "data_structures": 0.0,
+        "testing": 0.0,
+    },
+    "network": {
+        "osi_model": 0.0,
+        "tcp_ip": 0.0,
+        "dns": 0.0,
+    },
+    "linux": {
+        "filesystem": 1.0,
+        "permissions": 1.0,
+        "processes": 1.0,
+    },
+    "softskills": {
+        "communication": 0.0,
+        "troubleshooting": 0.0,
+        "documentation": 0.0,
+    },
 }
 
 
@@ -76,12 +102,18 @@ def default_skill(level: float) -> Dict:
 def init_profile(stack: str) -> None:
     now = datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z"
     skills: Dict[str, Dict] = {}
+    all_levels: list = []
     for skill, topics in DEFAULT_SKILLS.items():
-        skills[skill] = {topic: default_skill(round(0.1 + i * 0.05, 2)) for i, topic in enumerate(topics)}
+        skill_skills: Dict[str, Dict] = {}
+        for topic, level in topics.items():
+            skill_skills[topic] = default_skill(level)
+            all_levels.append(level)
+        skills[skill] = skill_skills
+    overall_level = round(sum(all_levels) / len(all_levels), 2) if all_levels else 0.0
     data = {
         "version": 1,
         "last_updated": now,
-        "global": {"overall_level": 0.2, "current_sprint": 0},
+        "global": {"overall_level": overall_level, "current_sprint": 0},
         "skills": skills,
     }
     os.makedirs(os.path.dirname(profile_path(stack)), exist_ok=True)

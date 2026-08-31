@@ -42,7 +42,7 @@ else:
     current_sprint = 1
     st.warning("Aucun profile.yaml. Lance `scripts/learner_cli.py init`.")
 
-sprint = st.sidebar.number_input("Sprint", min_value=1, value=current_sprint)
+sprint = st.sidebar.number_input("Sprint", min_value=1, value=max(1, current_sprint))
 
 if profile:
     st.subheader("Vue d'ensemble")
