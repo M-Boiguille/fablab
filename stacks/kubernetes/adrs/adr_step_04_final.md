@@ -13,6 +13,15 @@ Nous avons ajouté deux sondes HTTP au conteneur Nginx :
 
 Les deux endpoints sont configurés dans la ConfigMap Nginx pour dépendre de la présence du fichier `index.html`. Si ce fichier est supprimé, les deux endpoints retournent une erreur, ce qui permet de simuler une panne.
 
+Les valeurs temporelles des sondes sont définies comme suit :
+- `initialDelaySeconds: 5`
+- `periodSeconds: 10`
+- `timeoutSeconds: 2`
+- `failureThreshold: 3`
+- `successThreshold: 1`
+
+Ces réglages sont volontairement conservateurs pour éviter des redémarrages intempestifs.
+
 Nous avons également déployé Prometheus et Grafana dans le namespace `tools` pour collecter et visualiser les métriques des pods Nginx.
 
 ## Conséquences
@@ -26,5 +35,4 @@ Nous avons également déployé Prometheus et Grafana dans le namespace `tools` 
 - **Ne pas ajouter de sondes** : risquerait de reproduire le scénario d'incident décrit dans la mission.
 
 ## Risques résiduels
-- Les valeurs temporelles des sondes sont très agressives (période de 1 seconde). En production, il faudrait les ajuster.
 - Le dashboard Grafana n'est pas encore provisionné automatiquement (à faire dans une étape ultérieure).
