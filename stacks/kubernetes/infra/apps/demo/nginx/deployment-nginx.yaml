@@ -56,22 +56,25 @@ spec:
         ports:
         - containerPort: 80
           name: nginx
+        # Liveness: detect deadlock/irrecoverable state. Period 10s, 3 consecutive failures => restart after ~30s.
         livenessProbe:
           httpGet:
             path: /health
             port: 80
-          initialDelaySeconds: 1
-          periodSeconds: 1
-          timeoutSeconds: 1
-          failureThreshold: 30
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+          successThreshold: 1
+        # Readiness: ensure pod is able to serve traffic. Period 10s, 3 consecutive failures => remove from Service.
         readinessProbe:
           httpGet:
             path: /hello
             port: 80
-          initialDelaySeconds: 1
-          periodSeconds: 1
-          timeoutSeconds: 1
-          failureThreshold: 1
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
           successThreshold: 1
         securityContext:
           allowPrivilegeEscalation: false

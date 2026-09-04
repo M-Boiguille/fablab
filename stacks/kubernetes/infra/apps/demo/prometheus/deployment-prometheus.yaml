@@ -49,6 +49,23 @@ spec:
             - name: prometheus
               containerPort: 9090
 
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
           volumeMounts:
             - name: prometheus-config
               mountPath: /etc/prometheus/prometheus.yml
