@@ -118,7 +118,7 @@ def load_test_strategy(stack: str) -> Dict:
         "tool": "l'outil de la stack",
         "tooling_name": stack,
         "required_files": [
-            "infra/adrs/adr_step_{step:02d}_final.md",
+            "adrs/adr_step_{step:02d}_final.md",
             "tests/step_{step:02d}_validation.sh",
             "tests/step_{step:02d}_result.txt",
         ],
@@ -254,7 +254,7 @@ def update_state_from_step(
 ) -> None:
     ctx = build_context(stack, step, step_info, state, load_stack(stack), test_strategy)
     prompt = load_prompt(stack, "system_state_updater.txt", ctx)
-    adr = load_text(f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md")
+    adr = load_text(f"stacks/{stack}/adrs/adr_step_{step:02d}_final.md")
     result = load_text(
         f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
     )
@@ -305,7 +305,7 @@ def generate_retrospective(
 ) -> str:
     ctx = build_context(stack, step, step_info, state, load_stack(stack), test_strategy)
     prompt = load_prompt(stack, "system_retrospective.txt", ctx)
-    adr = load_text(f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md")
+    adr = load_text(f"stacks/{stack}/adrs/adr_step_{step:02d}_final.md")
     result = load_text(
         f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
     )
@@ -572,8 +572,8 @@ def review_adr(args: argparse.Namespace) -> None:
     if step_info is None:
         raise RuntimeError(f"Étape {step} introuvable")
 
-    v1_path = f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_v1.md"
-    final_path = f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md"
+    v1_path = f"stacks/{stack}/adrs/adr_step_{step:02d}_v1.md"
+    final_path = f"stacks/{stack}/adrs/adr_step_{step:02d}_final.md"
     adr_path = v1_path if os.path.exists(v1_path) else final_path
     if not os.path.exists(adr_path):
         print(f"Pas d'ADR à reviewer pour l'étape {step:02d}")
@@ -614,7 +614,7 @@ def sre_review(args: argparse.Namespace) -> None:
     result_path = (
         f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
     )
-    final_adr = f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md"
+    final_adr = f"stacks/{stack}/adrs/adr_step_{step:02d}_final.md"
     if not os.path.exists(result_path) or not os.path.exists(final_adr):
         print(f"Artefacts incomplets pour l'étape {step:02d}, SRE review ignorée")
         return

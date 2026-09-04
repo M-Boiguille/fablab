@@ -1,7 +1,7 @@
 tool: "kubectl"
 tooling_name: "Kubernetes"
 required_files:
-  - "infra/adrs/adr_step_{step:02d}_final.md"
+  - "adrs/adr_step_{step:02d}_final.md"
   - "tests/step_{step:02d}_validation.sh"
   - "tests/step_{step:02d}_result.txt"
 pass_markers:
