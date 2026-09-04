@@ -1,20 +1,18 @@
-PASS
+FAIL
 --- Summary ---
-Step 03 validation successful: 13 passed, 0 failed.
-All checks passed for Deployment nginx, Service nginx-service, and 3 endpoints in namespace dev.
-
-PASS | Deployment 'nginx' exists in namespace 'dev'
-PASS | Deployment has 3 desired replicas
-PASS | Deployment has 3 ready replicas
-PASS | Deployment has RollingUpdate strategy
-PASS | Deployment has maxUnavailable=1
-PASS | Deployment has maxSurge=1
-PASS | Deployment has imagePullPolicy IfNotPresent
-PASS | Service 'nginx-service' exists in namespace 'dev'
-PASS | Service is of type ClusterIP
-PASS | Service selector matches Deployment label
-PASS | Service targetPort is 80
-PASS | Service has 3 populated endpoints
-# PASS: 13
-# FAIL: 0
-# PASS | Step 03 validation successful
+Step 03 validation failed: 0 passed, 12 failed.
+FAIL | Deployment 'nginx' exists in namespace 'dev' (expected 'deployment.apps/nginx', got '')
+FAIL | Deployment has 3 desired replicas (expected '3', got '')
+FAIL | Deployment has 3 ready replicas (expected '3', got '')
+FAIL | Deployment has RollingUpdate strategy (expected 'RollingUpdate', got '')
+FAIL | Deployment has maxUnavailable=1 (expected '1', got '')
+FAIL | Deployment has maxSurge=1 (expected '1', got '')
+FAIL | Deployment has imagePullPolicy IfNotPresent (expected 'IfNotPresent', got '')
+FAIL | Service 'nginx-service' exists in namespace 'dev' (expected 'service/nginx-service', got '')
+FAIL | Service is of type ClusterIP (expected 'ClusterIP', got '')
+FAIL | Service selector matches Deployment label (expected 'nginx', got '')
+FAIL | Service targetPort is 80 (expected '80', got '')
+FAIL | Service should have 3 populated endpoints (got '0')
+# PASS: 0
+# FAIL: 12
+# FAIL | Step 03 validation failed

@@ -14,14 +14,20 @@ data:
             listen 80;
 
             location = /health {
-                root /;
+                root /usr/share/nginx/html;
+                try_files /index.html =404;
             }
 
             location = /hello {
-                root /;
+                root /usr/share/nginx/html;
+                try_files /index.html =404;
             }
 
             location / {
                 return 404;
+            }
+
+            location = /stub_status {
+                stub_status;
             }
         }

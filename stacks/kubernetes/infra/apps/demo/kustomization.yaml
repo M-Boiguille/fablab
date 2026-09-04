@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - nginx/configmap-nginx.yaml
+  - nginx/deployment-nginx.yaml
+  - nginx/service-nginx.yaml
+
+  - grafana/configmap-grafana.yaml
+  - grafana/deployment-grafana.yaml
+  - grafana/ingress-grafana.yaml
+  - grafana/service-grafana.yaml
+
+  - prometheus/config-configmap-prometheus.yaml
+  - prometheus/rules-configmap-prometheus.yaml
+  - prometheus/deployment-prometheus.yaml
+  - prometheus/ingress.yaml
+  - prometheus/service-prometheus.yaml
+  - prometheus/serviceaccount-prometheus.yaml

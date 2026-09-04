@@ -1,0 +1,16 @@
+# https://kubernetes.io/docs/concepts/configuration/configmap/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: tools
+data:
+  pod-alerts.yml: |
+    groups:
+      - name: kubernetes
+        rules:
+          - alert: PodNotReady
+            expr: kube_pod_status_ready{namespace="dev", condition="true"} == 0
+            for: 2m
+---
+
