@@ -13,3 +13,4 @@ _site/
 
 # macOS
 .DS_Store
+.aider*
