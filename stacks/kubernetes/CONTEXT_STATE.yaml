@@ -1,10 +1,11 @@
-current_step: 4
+current_step: 5
 total_steps: 16
 stack: kubernetes
 status: in_progress
-context_capsule: Déploiement Nginx avec 3 replicas, RollingUpdate (maxUnavailable:1,
-  maxSurge:1), Service ClusterIP, ConfigMap pour config, image épinglée par digest,
-  sécurité renforcée. Disponibilité privilégiée avec consommation temporaire de ressources.
+context_capsule: Implémentation de readiness/liveness probes HTTP pour Nginx (/hello,
+  /health) pour gérer les pods bloqués/inaptes, avec Prometheus/Grafana pour l'observabilité.
+  Réglages conservateurs pour la stabilité, évitant les redémarrages intempestifs.
+  Validation réussie.
 key_decisions:
 - 4 namespaces par environnement (dev, staging, prod, tools) avec labels standardisés
   (environment, team, managed-by)
@@ -21,6 +22,14 @@ key_decisions:
 - Image épinglée par digest avec imagePullPolicy IfNotPresent
 - 'Contrôles de sécurité: runAsNonRoot, drop capabilities, allowPrivilegeEscalation:
   false'
+- Ajout de readinessProbe sur `/hello` et livenessProbe sur `/health` pour le conteneur
+  Nginx.
+- Configuration des endpoints de sonde pour dépendre de la présence de `index.html`
+  afin de simuler des pannes.
+- 'Définition de valeurs temporelles conservatrices pour les sondes (e.g., `initialDelaySeconds:
+  5`, `periodSeconds: 10`, `failureThreshold: 3`).'
+- Déploiement de Prometheus et Grafana dans le namespace `tools` pour la collecte
+  et la visualisation des métriques.
 pending_risks:
 - Prolifération de namespaces non gouvernés à l'avenir
 - Namespace mal configuré peut exposer des ressources sensibles
@@ -30,4 +39,5 @@ pending_risks:
   (étape 4)
 - Registre privé et signature Cosign reportés en production
 - PodDisruptionBudget non implémenté, nécessaire en production
-last_updated: '2026-08-30T03:47:40.549285Z'
+- Le dashboard Grafana n'est pas encore provisionné automatiquement.
+last_updated: '2026-09-05T21:20:20.790822Z'
