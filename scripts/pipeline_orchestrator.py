@@ -538,19 +538,25 @@ def check_pr(args: argparse.Namespace) -> None:
 
 
 def post_pr_comment(pr_number: int, body: str, key: str = "") -> None:
+    print(f"post_pr_comment appelé: pr_number={pr_number}, key={key}, body_length={len(body)}")
     marker = f"<!-- review-key:{key} -->"
     full_body = f"{marker}\n{body}"
     if key:
+        print(f"Vérification des commentaires existants pour le marker: {marker}")
         comments = gh_get(f"repos/{REPO}/issues/{pr_number}/comments")
+        print(f"Nombre de commentaires existants: {len(comments)}")
         for c in comments:
             if marker in c.get("body", ""):
+                print(f"Commentaire existant trouvé avec ID {c['id']}, mise à jour")
                 _gh(
                     "PATCH",
                     f"repos/{REPO}/issues/comments/{c['id']}",
                     {"body": full_body},
                 )
                 return
-    gh_post(f"repos/{REPO}/issues/{pr_number}/comments", {"body": full_body})
+    print("Aucun commentaire existant trouvé, création d'un nouveau commentaire")
+    response = gh_post(f"repos/{REPO}/issues/{pr_number}/comments", {"body": full_body})
+    print(f"Commentaire créé avec succès, réponse: {response}")
 
 
 def review_adr(args: argparse.Namespace) -> None:
@@ -584,6 +590,9 @@ def review_adr(args: argparse.Namespace) -> None:
     adr = load_text(adr_path)
     user_prompt = f"ADR à reviewer :\n\n{adr}"
     review = llm.chat(prompt, user_prompt)
+    print(f"Review ADR générée ({len(review)} caractères)")
+    if not review.strip():
+        print("Avertissement: la review est vide")
     post_pr_comment(
         pr_number,
         f"## Review Architecte — Étape {step:02d}\n\n{review}",

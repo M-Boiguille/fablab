@@ -34,6 +34,14 @@ jobs:
         run: |
           pip install pyyaml requests
 
+      - name: Debug PR info
+        run: |
+          echo "PR_HEAD_REF: $PR_HEAD_REF"
+          echo "PR_NUMBER: $PR_NUMBER"
+        env:
+          PR_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.number }}
+
       - name: ADR review
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -58,6 +66,14 @@ jobs:
       - name: Install dependencies
         run: |
           pip install pyyaml requests
+
+      - name: Debug PR info
+        run: |
+          echo "PR_HEAD_REF: $PR_HEAD_REF"
+          echo "PR_NUMBER: $PR_NUMBER"
+        env:
+          PR_HEAD_REF: ${{ github.event.inputs.pr_head_ref || github.head_ref }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.number }}
 
       - name: SRE review
         env:
