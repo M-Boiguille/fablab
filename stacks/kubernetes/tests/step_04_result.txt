@@ -1,0 +1,13 @@
+PASS
+--- Summary ---
+[2026-09-04 16:00:46] Step 04 validation: 7 passed, 0 failed
+[2026-09-04 16:00:05] PASS | Les 3 Pods de 'nginx' sont Ready
+[2026-09-04 16:00:05] PASS | Deployment 'nginx' has a readinessProbe
+[2026-09-04 16:00:05] PASS | Deployment 'nginx' has a livenessProbe
+[2026-09-04 16:00:33] PASS | Les liveness probes ont redémarré les 3 conteneurs
+[2026-09-04 16:00:46] PASS | Les 3 Pods sont de nouveau Ready
+[2026-09-04 16:00:46] PASS | Prometheus is Ready in namespace 'tools' (1 pod(s))
+[2026-09-04 16:00:46] PASS | Grafana is Ready in namespace 'tools' (1 pod(s))
+# PASS: 7
+# FAIL: 0
+[2026-09-04 16:00:46] # PASS | Step 04 validation successful

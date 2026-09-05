@@ -118,7 +118,7 @@ def load_test_strategy(stack: str) -> Dict:
         "tool": "l'outil de la stack",
         "tooling_name": stack,
         "required_files": [
-            "infra/adrs/adr_step_{step:02d}_final.md",
+            "adrs/adr_step_{step:02d}_final.md",
             "tests/step_{step:02d}_validation.sh",
             "tests/step_{step:02d}_result.txt",
         ],
@@ -254,7 +254,7 @@ def update_state_from_step(
 ) -> None:
     ctx = build_context(stack, step, step_info, state, load_stack(stack), test_strategy)
     prompt = load_prompt(stack, "system_state_updater.txt", ctx)
-    adr = load_text(f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md")
+    adr = load_text(f"stacks/{stack}/adrs/adr_step_{step:02d}_final.md")
     result = load_text(
         f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
     )
@@ -305,7 +305,7 @@ def generate_retrospective(
 ) -> str:
     ctx = build_context(stack, step, step_info, state, load_stack(stack), test_strategy)
     prompt = load_prompt(stack, "system_retrospective.txt", ctx)
-    adr = load_text(f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md")
+    adr = load_text(f"stacks/{stack}/adrs/adr_step_{step:02d}_final.md")
     result = load_text(
         f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
     )
@@ -538,19 +538,13 @@ def check_pr(args: argparse.Namespace) -> None:
 
 
 def post_pr_comment(pr_number: int, body: str, key: str = "") -> None:
-    marker = f"<!-- review-key:{key} -->"
-    full_body = f"{marker}\n{body}"
+    print(f"post_pr_comment appelé: pr_number={pr_number}, key={key}, body_length={len(body)}")
+    full_body = body
     if key:
-        comments = gh_get(f"repos/{REPO}/issues/{pr_number}/comments")
-        for c in comments:
-            if marker in c.get("body", ""):
-                _gh(
-                    "PATCH",
-                    f"repos/{REPO}/issues/comments/{c['id']}",
-                    {"body": full_body},
-                )
-                return
-    gh_post(f"repos/{REPO}/issues/{pr_number}/comments", {"body": full_body})
+        full_body = f"<!-- review-key:{key} -->\n{body}"
+    print("Création d'un nouveau commentaire")
+    response = gh_post(f"repos/{REPO}/issues/{pr_number}/comments", {"body": full_body})
+    print(f"Commentaire créé avec succès, réponse: {response}")
 
 
 def review_adr(args: argparse.Namespace) -> None:
@@ -572,8 +566,8 @@ def review_adr(args: argparse.Namespace) -> None:
     if step_info is None:
         raise RuntimeError(f"Étape {step} introuvable")
 
-    v1_path = f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_v1.md"
-    final_path = f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md"
+    v1_path = f"stacks/{stack}/adrs/adr_step_{step:02d}_v1.md"
+    final_path = f"stacks/{stack}/adrs/adr_step_{step:02d}_final.md"
     adr_path = v1_path if os.path.exists(v1_path) else final_path
     if not os.path.exists(adr_path):
         print(f"Pas d'ADR à reviewer pour l'étape {step:02d}")
@@ -584,6 +578,9 @@ def review_adr(args: argparse.Namespace) -> None:
     adr = load_text(adr_path)
     user_prompt = f"ADR à reviewer :\n\n{adr}"
     review = llm.chat(prompt, user_prompt)
+    print(f"Review ADR générée ({len(review)} caractères)")
+    if not review.strip():
+        print("Avertissement: la review est vide")
     post_pr_comment(
         pr_number,
         f"## Review Architecte — Étape {step:02d}\n\n{review}",
@@ -614,7 +611,7 @@ def sre_review(args: argparse.Namespace) -> None:
     result_path = (
         f"stacks/{stack}/{format_template(test_strategy['validation_output'], step)}"
     )
-    final_adr = f"stacks/{stack}/infra/adrs/adr_step_{step:02d}_final.md"
+    final_adr = f"stacks/{stack}/adrs/adr_step_{step:02d}_final.md"
     if not os.path.exists(result_path) or not os.path.exists(final_adr):
         print(f"Artefacts incomplets pour l'étape {step:02d}, SRE review ignorée")
         return

@@ -14,18 +14,20 @@ data:
             listen 80;
 
             location = /health {
-                access_log off;
-                return 200 "Ready\n";
-                add_header Content-Type text/plain;
+                root /usr/share/nginx/html;
+                try_files /index.html =404;
             }
 
             location = /hello {
-                access_log off;
-                return 200 "Hello World\n";
-                add_header Content-Type text/plain;
+                root /usr/share/nginx/html;
+                try_files /index.html =404;
             }
 
             location / {
                 return 404;
+            }
+
+            location = /stub_status {
+                stub_status;
             }
         }
