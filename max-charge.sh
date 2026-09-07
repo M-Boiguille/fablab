@@ -235,8 +235,10 @@ run_load() {
         wait || true
 
         # Compter les résultats
-        OK_COUNT=$(grep -c "OK" "${RESULTS_FILE}" 2>/dev/null || echo 0)
-        FAIL_COUNT=$(grep -c "FAIL" "${RESULTS_FILE}" 2>/dev/null || echo 0)
+        OK_COUNT=$(grep -c "OK" "${RESULTS_FILE}" 2>/dev/null)
+        FAIL_COUNT=$(grep -c "FAIL" "${RESULTS_FILE}" 2>/dev/null)
+        OK_COUNT=${OK_COUNT:-0}
+        FAIL_COUNT=${FAIL_COUNT:-0}
 
         TOTAL=$((TOTAL + OK_COUNT))
         ERRORS=$((ERRORS + FAIL_COUNT))
