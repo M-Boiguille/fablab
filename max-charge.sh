@@ -100,10 +100,25 @@ echo "OK : Prometheus accessible."
 echo
 
 # --------------------------------------------------
-# 2. Création du load generator
+# 2. Vérification du service nginx
 # --------------------------------------------------
 
-echo "[2/6] Création du load-generator..."
+echo "[2/6] Vérification du service nginx..."
+
+# Vérifier que le service nginx existe
+if ! kubectl -n "${NAMESPACE}" get svc nginx-service >/dev/null 2>&1; then
+  echo "ERREUR : le service nginx-service n'existe pas dans le namespace ${NAMESPACE}"
+  exit 1
+fi
+
+echo "OK : Service nginx-service trouvé."
+echo
+
+# --------------------------------------------------
+# 3. Création du load generator
+# --------------------------------------------------
+
+echo "[3/6] Création du load-generator..."
 
 kubectl -n "${NAMESPACE}" delete pod "${LOAD_POD}" \
   --ignore-not-found=true \
@@ -130,29 +145,45 @@ run_load() {
 
     while [ "$SECONDS" -lt "$END_TIME" ]; do
 
-        i=0
-
-        while [ "$i" -lt "$RATE" ]; do
+        # Lancer les requêtes en parallèle avec un contrôle
+        for i in $(seq 1 "$RATE"); do
             (
-                curl -s \
+                if curl -s \
                     -o /dev/null \
                     --connect-timeout 1 \
                     --max-time 2 \
                     --fail \
-                    "http://nginx-service:8080/hello"
+                    "http://nginx-service:8080/hello"; then
+                    echo "OK" >> /tmp/curl_results_$$.log
+                else
+                    echo "FAIL" >> /tmp/curl_results_$$.log
+                fi
             ) &
-
-            i=$((i + 1))
         done
 
+        # Attendre que toutes les requêtes soient terminées
         wait || true
 
-        TOTAL=$((TOTAL + RATE))
+        # Compter les résultats
+        OK_COUNT=$(grep -c "OK" /tmp/curl_results_$$.log 2>/dev/null || echo 0)
+        FAIL_COUNT=$(grep -c "FAIL" /tmp/curl_results_$$.log 2>/dev/null || echo 0)
+
+        TOTAL=$((TOTAL + OK_COUNT))
+        ERRORS=$((ERRORS + FAIL_COUNT))
+
+        # Nettoyer le fichier temporaire
+        rm -f /tmp/curl_results_$$.log
+
+        echo "  - Seconde écoulée : ${OK_COUNT} OK, ${FAIL_COUNT} erreurs"
 
         sleep 1
     done
 
-    echo "RESULTAT : ${TOTAL} requêtes"
+    echo
+    echo "RESULTAT pour ${RATE} req/s :"
+    echo "  - Total requêtes : ${TOTAL}"
+    echo "  - Erreurs        : ${ERRORS}"
+    echo "  - Taux de succès : $(( (TOTAL - ERRORS) * 100 / TOTAL ))%"
 
     if [ "$ERRORS" -gt 0 ]; then
         echo "ERREUR : ${ERRORS} requêtes ont échoué sur ${TOTAL}"
@@ -163,11 +194,20 @@ run_load() {
     return 0
 }
 
-run_load 10 8 || exit 1
-run_load 50 8 || exit 1
-run_load 100 8 || exit 1
-run_load 200 8 || exit 1
-run_load 500 8 || exit 1
+# Test initial pour vérifier la connectivité
+echo "Test de connectivité initial..."
+if ! curl -s -o /dev/null --connect-timeout 2 --max-time 3 "http://nginx-service:8080/hello"; then
+    echo "ERREUR : Impossible de joindre nginx-service"
+    exit 1
+fi
+echo "Connectivité OK"
+echo
+
+# Exécuter les tests de charge
+for RATE in 10 50 100 200 500; do
+    run_load "$RATE" 8 || exit 1
+    echo
+done
 
 echo
 echo "========================================"
@@ -176,10 +216,10 @@ echo "========================================"
 '
 
 # --------------------------------------------------
-# 3. Attente Ready
+# 4. Attente Ready
 # --------------------------------------------------
 
-echo "[3/6] Attente du load-generator..."
+echo "[4/6] Attente du load-generator..."
 
 kubectl -n "${NAMESPACE}" wait \
   --for=jsonpath='{.status.phase}'=Running \
@@ -190,10 +230,10 @@ echo "OK : load-generator Running."
 echo
 
 # --------------------------------------------------
-# 4. START + watch
+# 5. START + watch
 # --------------------------------------------------
 
-echo "[4/6] Démarrage de la mesure..."
+echo "[5/6] Démarrage de la mesure..."
 
 START=$(date +%s)
 
@@ -226,10 +266,10 @@ kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 |
 LOAD_LOG_PID=$!
 
 # --------------------------------------------------
-# 5. Attente de la fin du test
+# 6. Attente de la fin du test
 # --------------------------------------------------
 
-echo "[5/6] Test en cours..."
+echo "[6/6] Test en cours..."
 
 kubectl -n "${NAMESPACE}" wait \
   --for=jsonpath='{.status.phase}'=Succeeded \
@@ -242,24 +282,7 @@ echo
 echo "END = ${END}"
 echo
 
-# --------------------------------------------------
-# 6. Bilan final
-# --------------------------------------------------
-
-echo "[6/6] Bilan final..."
-
-if [ -n "${WATCH_PID}" ]; then
-  kill "${WATCH_PID}" 2>/dev/null || true
-  wait "${WATCH_PID}" 2>/dev/null || true
-  WATCH_PID=""
-fi
-
-if [ -n "${LOAD_LOG_PID}" ]; then
-  kill "${LOAD_LOG_PID}" 2>/dev/null || true
-  wait "${LOAD_LOG_PID}" 2>/dev/null || true
-  LOAD_LOG_PID=""
-fi
-
+# Bilan final
 echo
 echo "========================================"
 echo " BILAN FINAL"
