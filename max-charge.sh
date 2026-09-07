@@ -144,9 +144,11 @@ run_load() {
     echo "LOAD ${RATE} req/s - ${DURATION}s"
     echo "========================================"
 
-    for ((sec=0; sec<DURATION; sec++)); do
+    sec=0
+    while [ "$sec" -lt "$DURATION" ]; do
         # Lancer RATE requêtes en parallèle
-        for ((i=0; i<RATE; i++)); do
+        i=0
+        while [ "$i" -lt "$RATE" ]; do
             (
                 if curl -s \
                     -o /dev/null \
@@ -159,6 +161,7 @@ run_load() {
                     echo "FAIL" >> /tmp/curl_results_$$.log
                 fi
             ) &
+            i=$((i + 1))
         done
 
         # Attendre que toutes les requêtes soient terminées
@@ -175,6 +178,8 @@ run_load() {
         rm -f /tmp/curl_results_$$.log
 
         echo "  - Seconde $((sec+1)) : ${OK_COUNT} OK, ${FAIL_COUNT} erreurs"
+
+        sec=$((sec + 1))
     done
 
     echo
