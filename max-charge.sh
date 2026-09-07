@@ -56,6 +56,8 @@ cleanup() {
     --wait=false >/dev/null 2>&1 || true
 
   rm -f "${SAMPLES_FILE}"
+  rm -f /tmp/load_generator.log
+  rm -f /tmp/curl_results.log
   echo "Nettoyage terminé."
 }
 
@@ -176,6 +178,9 @@ echo
 
 echo "[4/6] Création du load-generator..."
 
+# Record the start time of the whole load test
+START=$(date +%s)
+
 kubectl -n "${NAMESPACE}" delete pod "${LOAD_POD}" \
   --ignore-not-found=true \
   --wait=true >/dev/null 2>&1 || true
@@ -192,7 +197,7 @@ run_load() {
     TOTAL=0
     ERRORS=0
 
-    echo "MARKER_START_${RATE}"
+    echo "MARKER_START_${RATE} $(date +%s)"
     echo
     echo "========================================"
     echo "LOAD ${RATE} req/s - ${DURATION}s"
@@ -202,7 +207,12 @@ run_load() {
     START_TIME=$(date +%s)
     END_TIME=$((START_TIME + DURATION))
 
+    RESULTS_FILE="/tmp/curl_results.log"
+
     while [ "$(date +%s)" -lt "$END_TIME" ]; do
+        # Reset results file for this iteration
+        : > "${RESULTS_FILE}"
+
         # Lancer RATE requêtes en parallèle
         i=0
         while [ "$i" -lt "$RATE" ]; do
@@ -213,9 +223,9 @@ run_load() {
                     --max-time 2 \
                     --fail \
                     "http://nginx-service:8080/hello"; then
-                    echo "OK" >> /tmp/curl_results_$$.log
+                    echo "OK" >> "${RESULTS_FILE}"
                 else
-                    echo "FAIL" >> /tmp/curl_results_$$.log
+                    echo "FAIL" >> "${RESULTS_FILE}"
                 fi
             ) &
             i=$((i + 1))
@@ -225,17 +235,20 @@ run_load() {
         wait || true
 
         # Compter les résultats
-        OK_COUNT=$(grep -c "OK" /tmp/curl_results_$$.log 2>/dev/null || echo 0)
-        FAIL_COUNT=$(grep -c "FAIL" /tmp/curl_results_$$.log 2>/dev/null || echo 0)
+        OK_COUNT=$(grep -c "OK" "${RESULTS_FILE}" 2>/dev/null || echo 0)
+        FAIL_COUNT=$(grep -c "FAIL" "${RESULTS_FILE}" 2>/dev/null || echo 0)
 
         TOTAL=$((TOTAL + OK_COUNT))
         ERRORS=$((ERRORS + FAIL_COUNT))
 
-        # Nettoyer le fichier temporaire
-        rm -f /tmp/curl_results_$$.log
-
         echo "  - Itération : ${OK_COUNT} OK, ${FAIL_COUNT} erreurs"
+
+        # Sleep to control request rate
+        sleep 1
     done
+
+    # Clean temporary file
+    rm -f "${RESULTS_FILE}"
 
     echo
     echo "RESULTAT pour ${RATE} req/s :"
@@ -249,12 +262,12 @@ run_load() {
 
     if [ "$ERRORS" -gt 0 ]; then
         echo "ERREUR : ${ERRORS} requêtes ont échoué sur ${TOTAL}"
-        echo "MARKER_END_${RATE}"
+        echo "MARKER_END_${RATE} $(date +%s)"
         return 1
     fi
 
     echo "SUCCÈS : ${TOTAL} requêtes, 0 erreur"
-    echo "MARKER_END_${RATE}"
+    echo "MARKER_END_${RATE} $(date +%s)"
     return 0
 }
 
@@ -294,32 +307,20 @@ echo "OK : load-generator Running."
 echo
 
 # --------------------------------------------------
-# 6. Suivi des logs pour détecter les marqueurs
+# 6. Suivi des logs pour affichage et détection des marqueurs
 # --------------------------------------------------
 
 echo "[6/6] Démarrage du suivi des logs..."
 
-# On capture les logs dans un fichier temporaire pour les traiter
+# Capture les logs dans un fichier temporaire pour les traiter
 LOG_FILE="/tmp/load_generator.log"
 : > "${LOG_FILE}"
 
 kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 > "${LOG_FILE}" &
 KUBECTL_LOGS_PID=$!
 
-# Lire le fichier ligne par ligne et détecter les marqueurs
-tail -n +1 -f "${LOG_FILE}" | while IFS= read -r line; do
-    echo "$line"
-
-    if [[ "$line" =~ MARKER_START_([0-9]+) ]]; then
-        rate="${BASH_REMATCH[1]}"
-        RATE_START_TIMES[$rate]=$(date +%s)
-        echo "DEBUG: start rate ${rate} à ${RATE_START_TIMES[$rate]}" >&2
-    elif [[ "$line" =~ MARKER_END_([0-9]+) ]]; then
-        rate="${BASH_REMATCH[1]}"
-        RATE_END_TIMES[$rate]=$(date +%s)
-        echo "DEBUG: end rate ${rate} à ${RATE_END_TIMES[$rate]}" >&2
-    fi
-done &
+# Afficher les logs en direct (sans modifier les tableaux du parent)
+tail -n +1 -f "${LOG_FILE}" &
 LOAD_LOG_PID=$!
 
 # Attendre la fin du test
@@ -343,6 +344,26 @@ wait "${LOAD_LOG_PID}" 2>/dev/null || true
 
 kill "${KUBECTL_LOGS_PID}" 2>/dev/null || true
 wait "${KUBECTL_LOGS_PID}" 2>/dev/null || true
+
+# --------------------------------------------------
+# Extraction des temps de début/fin de chaque niveau
+# --------------------------------------------------
+for rate in "${RATES[@]}"; do
+    start_line=$(grep -m1 "MARKER_START_${rate}" "${LOG_FILE}" || true)
+    end_line=$(grep -m1 "MARKER_END_${rate}" "${LOG_FILE}" || true)
+
+    if [ -n "$start_line" ]; then
+        RATE_START_TIMES[$rate]=$(echo "$start_line" | awk '{print $NF}')
+    else
+        RATE_START_TIMES[$rate]=0
+    fi
+
+    if [ -n "$end_line" ]; then
+        RATE_END_TIMES[$rate]=$(echo "$end_line" | awk '{print $NF}')
+    else
+        RATE_END_TIMES[$rate]=0
+    fi
+done
 
 # Bilan final
 echo
