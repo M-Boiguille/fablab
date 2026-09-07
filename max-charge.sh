@@ -19,9 +19,11 @@ RATES=(10 50 100 200 500)
 PORT_FORWARD_PID=""
 WATCH_PID=""
 LOAD_LOG_PID=""
+KUBECTL_LOGS_PID=""
 
-START=""
-END=""
+declare -A RATE_START_TIMES
+declare -A RATE_END_TIMES
+SAMPLES_FILE="/tmp/load_samples.log"
 
 cleanup() {
   echo
@@ -32,6 +34,11 @@ cleanup() {
   if [ -n "${LOAD_LOG_PID}" ]; then
     kill "${LOAD_LOG_PID}" 2>/dev/null || true
     wait "${LOAD_LOG_PID}" 2>/dev/null || true
+  fi
+
+  if [ -n "${KUBECTL_LOGS_PID}" ]; then
+    kill "${KUBECTL_LOGS_PID}" 2>/dev/null || true
+    wait "${KUBECTL_LOGS_PID}" 2>/dev/null || true
   fi
 
   if [ -n "${WATCH_PID}" ]; then
@@ -48,6 +55,7 @@ cleanup() {
     --ignore-not-found=true \
     --wait=false >/dev/null 2>&1 || true
 
+  rm -f "${SAMPLES_FILE}"
   echo "Nettoyage terminé."
 }
 
@@ -118,10 +126,55 @@ echo "OK : Service nginx-service trouvé."
 echo
 
 # --------------------------------------------------
-# 3. Création du load generator
+# 3. Démarrage de la surveillance des ressources
 # --------------------------------------------------
 
-echo "[3/6] Création du load-generator..."
+echo "[3/6] Démarrage de la surveillance des ressources..."
+
+: > "${SAMPLES_FILE}"   # reset samples file
+
+monitor_resources() {
+    while true; do
+        METRICS=$(kubectl top pods -n "${NAMESPACE}" --no-headers 2>/dev/null || echo "")
+
+        if [ -n "$METRICS" ]; then
+            TOTAL_CPU="0"
+            TOTAL_MEM="0"
+
+            while read -r POD CPU MEM; do
+                # Convert CPU: "100m" -> "0.100", "1" -> "1.000"
+                CPU_NUM=$(echo "$CPU" | sed 's/m$//')
+                if [[ "$CPU" == *m ]]; then
+                    CPU_NUM=$(echo "scale=3; $CPU_NUM / 1000" | bc)
+                fi
+
+                # Convert MEM: "100Mi" -> "100"
+                MEM_NUM=$(echo "$MEM" | sed 's/Mi$//')
+
+                TOTAL_CPU=$(echo "$TOTAL_CPU + $CPU_NUM" | bc)
+                TOTAL_MEM=$(echo "$TOTAL_MEM + $MEM_NUM" | bc)
+            done <<< "$METRICS"
+
+            TIMESTAMP=$(date +%s)
+            echo "$TIMESTAMP $TOTAL_CPU $TOTAL_MEM" >> "${SAMPLES_FILE}"
+        fi
+
+        sleep 2
+    done
+}
+
+# Lancer la surveillance en arrière-plan
+monitor_resources &
+MONITOR_PID=$!
+
+echo "OK : Surveillance démarrée (PID ${MONITOR_PID})."
+echo
+
+# --------------------------------------------------
+# 4. Création du load generator
+# --------------------------------------------------
+
+echo "[4/6] Création du load-generator..."
 
 kubectl -n "${NAMESPACE}" delete pod "${LOAD_POD}" \
   --ignore-not-found=true \
@@ -139,6 +192,7 @@ run_load() {
     TOTAL=0
     ERRORS=0
 
+    echo "MARKER_START_${RATE}"
     echo
     echo "========================================"
     echo "LOAD ${RATE} req/s - ${DURATION}s"
@@ -195,10 +249,12 @@ run_load() {
 
     if [ "$ERRORS" -gt 0 ]; then
         echo "ERREUR : ${ERRORS} requêtes ont échoué sur ${TOTAL}"
+        echo "MARKER_END_${RATE}"
         return 1
     fi
 
     echo "SUCCÈS : ${TOTAL} requêtes, 0 erreur"
+    echo "MARKER_END_${RATE}"
     return 0
 }
 
@@ -224,10 +280,10 @@ echo "========================================"
 '
 
 # --------------------------------------------------
-# 4. Attente Ready
+# 5. Attente Ready
 # --------------------------------------------------
 
-echo "[4/6] Attente du load-generator..."
+echo "[5/6] Attente du load-generator..."
 
 kubectl -n "${NAMESPACE}" wait \
   --for=jsonpath='{.status.phase}'=Running \
@@ -238,53 +294,33 @@ echo "OK : load-generator Running."
 echo
 
 # --------------------------------------------------
-# 5. START + logs + mesure de charge
+# 6. Suivi des logs pour détecter les marqueurs
 # --------------------------------------------------
 
-echo "[5/6] Démarrage de la mesure..."
+echo "[6/6] Démarrage du suivi des logs..."
 
-START=$(date +%s)
+# On capture les logs dans un fichier temporaire pour les traiter
+LOG_FILE="/tmp/load_generator.log"
+: > "${LOG_FILE}"
 
-echo "START = ${START}"
-echo
+kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 > "${LOG_FILE}" &
+KUBECTL_LOGS_PID=$!
 
-# Afficher les logs du load-generator en temps réel
-echo "=== Logs du load-generator ==="
-kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 &
+# Lire le fichier ligne par ligne et détecter les marqueurs
+tail -n +1 -f "${LOG_FILE}" | while IFS= read -r line; do
+    echo "$line"
+
+    if [[ "$line" =~ MARKER_START_([0-9]+) ]]; then
+        rate="${BASH_REMATCH[1]}"
+        RATE_START_TIMES[$rate]=$(date +%s)
+        echo "DEBUG: start rate ${rate} à ${RATE_START_TIMES[$rate]}" >&2
+    elif [[ "$line" =~ MARKER_END_([0-9]+) ]]; then
+        rate="${BASH_REMATCH[1]}"
+        RATE_END_TIMES[$rate]=$(date +%s)
+        echo "DEBUG: end rate ${rate} à ${RATE_END_TIMES[$rate]}" >&2
+    fi
+done &
 LOAD_LOG_PID=$!
-
-# --------------------------------------------------
-# 6. Attente de la fin du test + mesure de charge
-# --------------------------------------------------
-
-echo "[6/6] Test en cours..."
-echo "Le test va durer environ $((${#RATES[@]} * DURATION)) secondes..."
-echo
-
-# Variable pour stocker la charge maximale
-MAX_LOAD=0
-
-# Fonction pour interroger Prometheus et mettre à jour MAX_LOAD
-monitor_load() {
-    while true; do
-        # Requête Prometheus pour obtenir le nombre de requêtes par seconde
-        # (adaptez la requête selon vos métriques)
-        LOAD=$(curl -s "http://127.0.0.1:${PROM_LOCAL_PORT}/api/v1/query" \
-            --data-urlencode 'query=sum(rate(nginx_ingress_controller_requests[1m]))' \
-            | jq -r '.data.result[0].value[1] // 0' 2>/dev/null || echo 0)
-
-        # Si LOAD est numérique et supérieur à MAX_LOAD, mettre à jour
-        if [[ "$LOAD" =~ ^[0-9]+(\.[0-9]+)?$ ]] && (( $(echo "$LOAD > $MAX_LOAD" | bc -l) )); then
-            MAX_LOAD=$LOAD
-        fi
-
-        sleep 2
-    done
-}
-
-# Lancer la surveillance en arrière-plan
-monitor_load &
-MONITOR_PID=$!
 
 # Attendre la fin du test
 kubectl -n "${NAMESPACE}" wait \
@@ -298,16 +334,15 @@ echo
 echo "END = ${END}"
 echo
 
-# Arrêter la surveillance
+# Arrêter la surveillance et le suivi des logs
 kill "${MONITOR_PID}" 2>/dev/null || true
 wait "${MONITOR_PID}" 2>/dev/null || true
 
-# Arrêter le suivi des logs
-if [ -n "${LOAD_LOG_PID}" ]; then
-    kill "${LOAD_LOG_PID}" 2>/dev/null || true
-    wait "${LOAD_LOG_PID}" 2>/dev/null || true
-    LOAD_LOG_PID=""
-fi
+kill "${LOAD_LOG_PID}" 2>/dev/null || true
+wait "${LOAD_LOG_PID}" 2>/dev/null || true
+
+kill "${KUBECTL_LOGS_PID}" 2>/dev/null || true
+wait "${KUBECTL_LOGS_PID}" 2>/dev/null || true
 
 # Bilan final
 echo
@@ -318,7 +353,30 @@ echo
 echo "Début : $(date -d "@${START}")"
 echo "Fin   : $(date -d "@${END}")"
 echo
-echo "Charge maximale observée : ${MAX_LOAD} req/s"
+
+# Calculer les maximums par niveau de requêtes
+echo "=== Charges maximales par niveau ==="
+for rate in "${RATES[@]}"; do
+    st="${RATE_START_TIMES[$rate]:-0}"
+    et="${RATE_END_TIMES[$rate]:-0}"
+
+    if [ "$st" -gt 0 ] && [ "$et" -gt 0 ] && [ "$et" -ge "$st" ]; then
+        max_cpu=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($2 > max_cpu) max_cpu=$2} END {if (max_cpu=="") max_cpu=0; print max_cpu}' "${SAMPLES_FILE}")
+        max_mem=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($3 > max_mem) max_mem=$3} END {if (max_mem=="") max_mem=0; print max_mem}' "${SAMPLES_FILE}")
+        echo "  Rate ${rate} req/s : CPU max ${max_cpu} cores, MEM max ${max_mem} Mi"
+    else
+        echo "  Rate ${rate} req/s : données manquantes (st=${st}, et=${et})"
+    fi
+done
+
+# Calculer les maximums globaux
+overall_cpu=$(awk 'BEGIN {max=0} {if ($2 > max) max=$2} END {print max}' "${SAMPLES_FILE}")
+overall_mem=$(awk 'BEGIN {max=0} {if ($3 > max) max=$3} END {print max}' "${SAMPLES_FILE}")
+
+echo
+echo "=== Charge maximale globale ==="
+echo "  CPU maximale      : ${overall_cpu} cores"
+echo "  Mémoire maximale  : ${overall_mem} Mi"
 echo
 
 # Afficher une dernière fois les ressources
