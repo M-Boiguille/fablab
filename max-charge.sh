@@ -1,29 +1,54 @@
 #!/bin/bash
 
-set -u
+set -Eeuo pipefail
 
+# ==============================
+# Configuration
+# ==============================
 NAMESPACE="dev"
 LOAD_POD="load-generator"
-
 PROM_NAMESPACE="tools"
 PROM_SERVICE="prometheus"
 PROM_LOCAL_PORT="9090"
 PROM_REMOTE_PORT="9090"
 
-# Durée de chaque étape
-DURATION=120
-
-# Tests
 RATES=(10 50 100 200 500)
 
-PORT_FORWARD_PID=""
-WATCH_PID=""
-LOAD_LOG_PID=""
-KUBECTL_LOGS_PID=""
+# Durée de chaque palier
+WARMUP_SECONDS=60
+MEASURE_SECONDS=120
+STAGE_DURATION=$((WARMUP_SECONDS + MEASURE_SECONDS))
 
-declare -A RATE_START_TIMES
-declare -A RATE_END_TIMES
+PROM_STEP_SECONDS=15
+
+SAFETY_MARGIN_PERCENT=50
+
+# Fichiers temporaires
+LOG_FILE="/tmp/load_generator.log"
+CURL_RESULTS_FILE="/tmp/curl_results.log"
 SAMPLES_FILE="/tmp/load_samples.log"
+
+# Variables de processus
+PORT_FORWARD_PID=""
+KUBECTL_LOGS_PID=""
+LOAD_LOG_PID=""
+
+# Tableaux associatifs
+declare -A STAGE_START
+declare -A MEASURE_START
+declare -A STAGE_END
+
+# ==============================
+# Fonctions utilitaires
+# ==============================
+check_dependencies() {
+  for cmd in kubectl curl jq awk sort grep date sed wc; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      echo "ERREUR : $cmd est requis mais introuvable." >&2
+      exit 1
+    fi
+  done
+}
 
 cleanup() {
   echo
@@ -31,37 +56,120 @@ cleanup() {
   echo " Nettoyage"
   echo "========================================"
 
-  if [ -n "${LOAD_LOG_PID}" ]; then
-    kill "${LOAD_LOG_PID}" 2>/dev/null || true
-    wait "${LOAD_LOG_PID}" 2>/dev/null || true
-  fi
-
-  if [ -n "${KUBECTL_LOGS_PID}" ]; then
-    kill "${KUBECTL_LOGS_PID}" 2>/dev/null || true
-    wait "${KUBECTL_LOGS_PID}" 2>/dev/null || true
-  fi
-
-  if [ -n "${WATCH_PID}" ]; then
-    kill "${WATCH_PID}" 2>/dev/null || true
-    wait "${WATCH_PID}" 2>/dev/null || true
-  fi
-
-  if [ -n "${PORT_FORWARD_PID}" ]; then
-    kill "${PORT_FORWARD_PID}" 2>/dev/null || true
-    wait "${PORT_FORWARD_PID}" 2>/dev/null || true
-  fi
+  [ -n "${LOAD_LOG_PID}" ] && kill "${LOAD_LOG_PID}" 2>/dev/null || true
+  [ -n "${KUBECTL_LOGS_PID}" ] && kill "${KUBECTL_LOGS_PID}" 2>/dev/null || true
+  [ -n "${PORT_FORWARD_PID}" ] && kill "${PORT_FORWARD_PID}" 2>/dev/null || true
 
   kubectl -n "${NAMESPACE}" delete pod "${LOAD_POD}" \
     --ignore-not-found=true \
     --wait=false >/dev/null 2>&1 || true
 
-  rm -f "${SAMPLES_FILE}"
-  rm -f /tmp/load_generator.log
-  rm -f /tmp/curl_results.log
+  rm -f "${SAMPLES_FILE}" "${LOG_FILE}" "${CURL_RESULTS_FILE}"
   echo "Nettoyage terminé."
 }
 
 trap cleanup EXIT INT TERM
+
+prom_query_range() {
+  local query="$1"
+  local start="$2"
+  local end="$3"
+  local step="$4"
+
+  curl -fsS --get "http://127.0.0.1:${PROM_LOCAL_PORT}/api/v1/query_range" \
+    --data-urlencode "query=${query}" \
+    --data-urlencode "start=${start}" \
+    --data-urlencode "end=${end}" \
+    --data-urlencode "step=${step}"
+}
+
+get_percentile() {
+  local values="$1"
+  local p="$2"
+
+  printf '%s\n' "$values" | sort -n | awk -v p="$p" '
+    {
+      a[NR] = $1
+    }
+    END {
+      n = NR
+      if (n == 0) {
+        print 0
+        exit
+      }
+      idx = p / 100.0 * (n - 1)
+      lower = int(idx)
+      upper = (lower + 1 < n) ? lower + 1 : lower
+      frac = idx - lower
+      if (lower + 1 <= n && upper + 1 <= n) {
+        print a[lower+1] + frac * (a[upper+1] - a[lower+1])
+      } else {
+        print a[lower+1]
+      }
+    }'
+}
+
+compute_stats() {
+  local values="$1"
+
+  # Supprime les lignes vides
+  values=$(printf '%s\n' "$values" | sed '/^[[:space:]]*$/d')
+
+  local count max p50 p95 p99
+  count=$(printf '%s\n' "$values" | wc -l)
+
+  if [ "$count" -eq 0 ]; then
+    echo "0 0 0 0 0"
+    return
+  fi
+
+  max=$(printf '%s\n' "$values" | awk 'BEGIN{max=-1e9} {if ($1>max) max=$1} END{if(max==-1e9)max=0; print max}')
+  p50=$(get_percentile "$values" 50)
+  p95=$(get_percentile "$values" 95)
+  p99=$(get_percentile "$values" 99)
+
+  echo "$count $max $p50 $p95 $p99"
+}
+
+prepare_cpu_values_mcpu() {
+  local resp="$1"
+  local pod="$2"
+
+  jq -r --arg pod "$pod" '.data.result[] | select(.metric.pod == $pod) | .values[] | @tsv' <<<"$resp" |
+    awk '
+      NR == 1 {
+        prev_t = $1
+        prev_v = $2
+        next
+      }
+      {
+        dt = $1 - prev_t
+        dv = $2 - prev_v
+        if (dt > 0 && dv >= 0) {
+          print (dv / dt) * 1000
+        }
+        prev_t = $1
+        prev_v = $2
+      }'
+}
+
+prepare_mem_values_mib() {
+  local resp="$1"
+  local pod="$2"
+
+  jq -r --arg pod "$pod" '.data.result[] | select(.metric.pod == $pod) | .values[] | .[1]' <<<"$resp"
+}
+
+is_greater() {
+  local a="$1"
+  local b="$2"
+  awk -v x="$a" -v y="$b" 'BEGIN{ exit !(x > y) }'
+}
+
+# ==============================
+# Vérifications initiales
+# ==============================
+check_dependencies
 
 echo "========================================"
 echo " Kubernetes load test"
@@ -71,22 +179,22 @@ echo "Namespace       : ${NAMESPACE}"
 echo "Prometheus      : ${PROM_NAMESPACE}/${PROM_SERVICE}"
 echo "Local Prometheus: http://127.0.0.1:${PROM_LOCAL_PORT}"
 echo "Rates           : ${RATES[*]}"
-echo "Durée/stage     : ${DURATION}s"
+echo "Warm-up         : ${WARMUP_SECONDS}s"
+echo "Mesure          : ${MEASURE_SECONDS}s"
+echo "Step Prometheus : ${PROM_STEP_SECONDS}s"
+echo "Marge sécurité  : ${SAFETY_MARGIN_PERCENT}%"
 echo
 
-# --------------------------------------------------
-# 1. Port-forward Prometheus (only once)
-# --------------------------------------------------
-
+# ==============================
+# 1. Port-forward Prometheus
+# ==============================
 echo "[1/6] Démarrage du port-forward Prometheus..."
 
-# Check if port already in use
 if ! curl -fsS "http://127.0.0.1:${PROM_LOCAL_PORT}/-/ready" >/dev/null 2>&1; then
   kubectl -n "${PROM_NAMESPACE}" port-forward \
     "svc/${PROM_SERVICE}" \
     "${PROM_LOCAL_PORT}:${PROM_REMOTE_PORT}" \
     >/tmp/prometheus-port-forward.log 2>&1 &
-
   PORT_FORWARD_PID=$!
 
   sleep 2
@@ -97,10 +205,7 @@ if ! curl -fsS "http://127.0.0.1:${PROM_LOCAL_PORT}/-/ready" >/dev/null 2>&1; th
     exit 1
   fi
 
-  if ! curl -fsS \
-    "http://127.0.0.1:${PROM_LOCAL_PORT}/-/ready" \
-    >/dev/null; then
-
+  if ! curl -fsS "http://127.0.0.1:${PROM_LOCAL_PORT}/-/ready" >/dev/null; then
     echo "ERREUR : Prometheus n'est pas accessible."
     cat /tmp/prometheus-port-forward.log
     exit 1
@@ -112,171 +217,127 @@ fi
 echo "OK : Prometheus accessible."
 echo
 
-# --------------------------------------------------
+# ==============================
 # 2. Vérification du service nginx
-# --------------------------------------------------
-
+# ==============================
 echo "[2/6] Vérification du service nginx..."
 
-# Vérifier que le service nginx existe
 if ! kubectl -n "${NAMESPACE}" get svc nginx-service >/dev/null 2>&1; then
   echo "ERREUR : le service nginx-service n'existe pas dans le namespace ${NAMESPACE}"
   exit 1
 fi
 
-echo "OK : Service nginx-service trouvé."
+if ! kubectl -n "${NAMESPACE}" get endpoints nginx-service -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null | grep -q .; then
+  echo "ERREUR : le service nginx-service n'a aucun endpoint actif"
+  exit 1
+fi
+
+echo "OK : Service nginx-service trouvé et endpoints actifs."
 echo
 
-# --------------------------------------------------
-# 3. Démarrage de la surveillance des ressources
-# --------------------------------------------------
+# ==============================
+# 3. Création du load-generator
+# ==============================
+echo "[3/6] Création du load-generator..."
 
-echo "[3/6] Démarrage de la surveillance des ressources..."
-
-: >"${SAMPLES_FILE}" # reset samples file
-
-monitor_resources() {
-  while true; do
-    # Only monitor nginx pods; ignore load-generator and other pods
-    METRICS=$(kubectl top pods -n "${NAMESPACE}" --no-headers 2>/dev/null |
-      awk '$1 ~ /^nginx-/ {print}' || echo "")
-
-    if [ -n "$METRICS" ]; then
-      TOTAL_CPU="0"
-      TOTAL_MEM="0"
-
-      while read -r POD CPU MEM; do
-        # Convert CPU: "100m" -> "0.100", "1" -> "1.000"
-        CPU_NUM=$(echo "$CPU" | sed 's/m$//')
-        if [[ "$CPU" == *m ]]; then
-          CPU_NUM=$(echo "scale=3; $CPU_NUM / 1000" | bc)
-        fi
-
-        # Convert MEM: "100Mi" -> "100"
-        MEM_NUM=$(echo "$MEM" | sed 's/Mi$//')
-
-        TOTAL_CPU=$(echo "$TOTAL_CPU + $CPU_NUM" | bc)
-        TOTAL_MEM=$(echo "$TOTAL_MEM + $MEM_NUM" | bc)
-      done <<<"$METRICS"
-
-      TIMESTAMP=$(date +%s)
-      echo "$TIMESTAMP $TOTAL_CPU $TOTAL_MEM" >>"${SAMPLES_FILE}"
-    fi
-
-    sleep 2
-  done
-}
-
-# Lancer la surveillance en arrière-plan
-monitor_resources &
-MONITOR_PID=$!
-
-echo "OK : Surveillance démarrée (PID ${MONITOR_PID})."
-echo
-
-# --------------------------------------------------
-# 4. Création du load generator
-# --------------------------------------------------
-
-echo "[4/6] Création du load-generator..."
-
-# Record the start time of the whole load test
+# Enregistrer l'heure de début globale
 START=$(date +%s)
 
 kubectl -n "${NAMESPACE}" delete pod "${LOAD_POD}" \
   --ignore-not-found=true \
   --wait=true >/dev/null 2>&1 || true
 
-kubectl -n "${NAMESPACE}" run "${LOAD_POD}" \
-  --image=curlimages/curl:8.10.1 \
-  --restart=Never \
-  --command -- sh -c '
+LOAD_SCRIPT=$(cat <<'LOAD_EOF'
+set -u
 
 run_load() {
-    RATE="$1"
-    DURATION="$2"
+    rate="$1"
+    total_duration="$2"
+    warmup="$3"
+    measure="$4"
 
-    TOTAL=0
-    ERRORS=0
+    total_req=0
+    error_req=0
+    success_req=0
 
-    echo "MARKER_START_${RATE} $(date +%s)"
-    echo
+    results_file="/tmp/curl_results.$$"
+    : > "${results_file}"
+
+    stage_start=$(date +%s)
+    echo "MARKER_STAGE_START_${rate} ${stage_start}"
+
+    echo "Stage ${rate} req/s - warmup ${warmup}s + mesure ${measure}s"
     echo "========================================"
-    echo "LOAD ${RATE} req/s - ${DURATION}s"
-    echo "========================================"
 
-    # Temps de début
-    START_TIME=$(date +%s)
-    END_TIME=$((START_TIME + DURATION))
+    # ---- Warm-up ----
+    warm_start="${stage_start}"
+    warm_end=$((warm_start + warmup))
 
-    RESULTS_FILE="/tmp/curl_results.log"
-    : > "${RESULTS_FILE}"
-
-    # Send batches of RATE requests every second for DURATION seconds.
-    # The previous version waited for all requests of a batch to finish
-    # before starting the next batch, which artificially limited the
-    # achieved request rate. Now we do not wait between batches; we sleep
-    # exactly 1 second after starting each batch, then count all results
-    # only after the whole stage has finished.
-    while [ "$(date +%s)" -lt "$END_TIME" ]; do
+    while [ "$(date +%s)" -lt "$warm_end" ]; do
         i=0
-        while [ "$i" -lt "$RATE" ]; do
+        while [ "$i" -lt "$rate" ]; do
             (
-                if curl -s \
-                    -o /dev/null \
-                    --connect-timeout 1 \
-                    --max-time 2 \
-                    --fail \
+                if curl -s -o /dev/null --connect-timeout 1 --max-time 2 --fail \
                     "http://nginx-service:8080/hello"; then
-                    echo "OK" >> "${RESULTS_FILE}"
+                    echo "OK" >> "${results_file}"
                 else
-                    echo "FAIL" >> "${RESULTS_FILE}"
+                    echo "FAIL" >> "${results_file}"
                 fi
             ) &
             i=$((i + 1))
         done
-
-        # Wait one second before sending the next batch
         sleep 1
     done
 
-    # Wait for all in-flight requests to finish
+    # ---- Début de la mesure réelle ----
+    measure_start=$(date +%s)
+    echo "MARKER_MEASURE_START_${rate} ${measure_start}"
+    measure_end=$((stage_start + total_duration))
+
+    while [ "$(date +%s)" -lt "$measure_end" ]; do
+        i=0
+        while [ "$i" -lt "$rate" ]; do
+            (
+                if curl -s -o /dev/null --connect-timeout 1 --max-time 2 --fail \
+                    "http://nginx-service:8080/hello"; then
+                    echo "OK" >> "${results_file}"
+                else
+                    echo "FAIL" >> "${results_file}"
+                fi
+            ) &
+            i=$((i + 1))
+        done
+        sleep 1
+    done
+
+    # Attendre que toutes les requêtes en arrière-plan se terminent
     wait || true
 
-    # Count results by reading the output file
-    OK_COUNT=$(grep -c "OK" "${RESULTS_FILE}" 2>/dev/null)
-    FAIL_COUNT=$(grep -c "FAIL" "${RESULTS_FILE}" 2>/dev/null)
-    OK_COUNT=${OK_COUNT:-0}
-    FAIL_COUNT=${FAIL_COUNT:-0}
+    success_req=$(grep -c "OK" "${results_file}" 2>/dev/null || true)
+    error_req=$(grep -c "FAIL" "${results_file}" 2>/dev/null || true)
+    total_req=$((success_req + error_req))
 
-    TOTAL=$((TOTAL + OK_COUNT))
-    ERRORS=$((ERRORS + FAIL_COUNT))
-
-    # Clean temporary file
-    rm -f "${RESULTS_FILE}"
+    rm -f "${results_file}"
 
     echo
-    echo "RESULTAT pour ${RATE} req/s :"
-    echo "  - Total requêtes : ${TOTAL}"
-    echo "  - Erreurs        : ${ERRORS}"
-    if [ "$TOTAL" -gt 0 ]; then
-        echo "  - Taux de succès : $(( (TOTAL - ERRORS) * 100 / TOTAL ))%"
+    echo "RESULTAT ${rate} req/s :"
+    echo "  - Total requêtes : ${total_req}"
+    echo "  - Erreurs        : ${error_req}"
+    if [ "$total_req" -gt 0 ]; then
+        echo "  - Taux de succès : $(( (total_req - error_req) * 100 / total_req ))%"
     else
         echo "  - Taux de succès : N/A (aucune requête)"
     fi
 
-    if [ "$ERRORS" -gt 0 ]; then
-        echo "ERREUR : ${ERRORS} requêtes ont échoué sur ${TOTAL}"
-        echo "MARKER_END_${RATE} $(date +%s)"
+    echo "MARKER_STAGE_END_${rate} $(date +%s)"
+
+    if [ "$error_req" -gt 0 ]; then
         return 1
     fi
-
-    echo "SUCCÈS : ${TOTAL} requêtes, 0 erreur"
-    echo "MARKER_END_${RATE} $(date +%s)"
     return 0
 }
 
-# Test initial pour vérifier la connectivité
+# ---- Test de connectivité initial ----
 echo "Test de connectivité initial..."
 if ! curl -s -o /dev/null --connect-timeout 2 --max-time 3 "http://nginx-service:8080/hello"; then
     echo "ERREUR : Impossible de joindre nginx-service"
@@ -285,23 +346,27 @@ fi
 echo "Connectivité OK"
 echo
 
-# Exécuter les tests de charge
-for RATE in 10 50 100 200 500; do
-    run_load "$RATE" 120 || exit 1
+# ---- Exécution des paliers ----
+for rate in 10 50 100 200 500; do
+    run_load "$rate" 180 60 120 || exit 1
     echo
 done
 
-echo
 echo "========================================"
 echo "LOAD TEST TERMINE"
 echo "========================================"
-'
+LOAD_EOF
+)
 
-# --------------------------------------------------
-# 5. Attente Ready
-# --------------------------------------------------
+kubectl -n "${NAMESPACE}" run "${LOAD_POD}" \
+  --image=curlimages/curl:8.10.1 \
+  --restart=Never \
+  --command -- sh -c "${LOAD_SCRIPT}"
 
-echo "[5/6] Attente du load-generator..."
+# ==============================
+# 4. Attente du démarrage
+# ==============================
+echo "[4/6] Attente du load-generator..."
 
 kubectl -n "${NAMESPACE}" wait \
   --for=jsonpath='{.status.phase}'=Running \
@@ -311,28 +376,23 @@ kubectl -n "${NAMESPACE}" wait \
 echo "OK : load-generator Running."
 echo
 
-# --------------------------------------------------
-# 6. Suivi des logs pour affichage et détection des marqueurs
-# --------------------------------------------------
+# ==============================
+# 5. Suivi des logs
+# ==============================
+echo "[5/6] Démarrage du suivi des logs..."
 
-echo "[6/6] Démarrage du suivi des logs..."
+: > "${LOG_FILE}"
 
-# Capture les logs dans un fichier temporaire pour les traiter
-LOG_FILE="/tmp/load_generator.log"
-: >"${LOG_FILE}"
-
-kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 >"${LOG_FILE}" &
+kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" > "${LOG_FILE}" 2>&1 &
 KUBECTL_LOGS_PID=$!
 
-# Afficher les logs en direct (sans modifier les tableaux du parent)
 tail -n +1 -f "${LOG_FILE}" &
 LOAD_LOG_PID=$!
 
-# Attendre la fin du test
 kubectl -n "${NAMESPACE}" wait \
   --for=jsonpath='{.status.phase}'=Succeeded \
   "pod/${LOAD_POD}" \
-  --timeout=15m
+  --timeout=20m
 
 END=$(date +%s)
 
@@ -340,64 +400,28 @@ echo
 echo "END = ${END}"
 echo
 
-# Arrêter la surveillance et le suivi des logs
-kill "${MONITOR_PID}" 2>/dev/null || true
-wait "${MONITOR_PID}" 2>/dev/null || true
-
+# Arrêter les processus de log
 kill "${LOAD_LOG_PID}" 2>/dev/null || true
-wait "${LOAD_LOG_PID}" 2>/dev/null || true
-
 kill "${KUBECTL_LOGS_PID}" 2>/dev/null || true
+wait "${LOAD_LOG_PID}" 2>/dev/null || true
 wait "${KUBECTL_LOGS_PID}" 2>/dev/null || true
 
-# --------------------------------------------------
-# Extraction des temps de début/fin de chaque niveau
-# --------------------------------------------------
+# ==============================
+# 6. Extraction des timestamps
+# ==============================
 for rate in "${RATES[@]}"; do
-  start_line=$(grep -m1 "MARKER_START_${rate}" "${LOG_FILE}" || true)
-  end_line=$(grep -m1 "MARKER_END_${rate}" "${LOG_FILE}" || true)
+  start_line=$(grep -m1 "MARKER_STAGE_START_${rate}" "${LOG_FILE}" || true)
+  measure_line=$(grep -m1 "MARKER_MEASURE_START_${rate}" "${LOG_FILE}" || true)
+  end_line=$(grep -m1 "MARKER_STAGE_END_${rate}" "${LOG_FILE}" || true)
 
-  if [ -n "$start_line" ]; then
-    RATE_START_TIMES[$rate]=$(echo "$start_line" | awk '{print $NF}')
-  else
-    RATE_START_TIMES[$rate]=0
-  fi
-
-  if [ -n "$end_line" ]; then
-    RATE_END_TIMES[$rate]=$(echo "$end_line" | awk '{print $NF}')
-  else
-    RATE_END_TIMES[$rate]=0
-  fi
+  [ -n "$start_line" ] && STAGE_START[$rate]=$(echo "$start_line" | awk '{print $NF}') || STAGE_START[$rate]=0
+  [ -n "$measure_line" ] && MEASURE_START[$rate]=$(echo "$measure_line" | awk '{print $NF}') || MEASURE_START[$rate]=0
+  [ -n "$end_line" ] && STAGE_END[$rate]=$(echo "$end_line" | awk '{print $NF}') || STAGE_END[$rate]=0
 done
 
-# --------------------------------------------------
-# Helpers for percentile calculation
-# --------------------------------------------------
-get_percentile() {
-  # $1: sorted values (one per line)
-  # $2: percentile as integer 0-100
-  # Outputs the requested percentile value
-  local values="$1"
-  local p="$2"
-
-  echo "$values" | sort -n | awk -v p="$p" '
-    BEGIN { n = 0 }
-    { a[n++] = $1 }
-    END {
-      if (n == 0) {
-        print "0"
-      } else {
-        # Linear interpolation between closest ranks
-        idx = (p / 100.0) * (n - 1)
-        lower = int(idx)
-        upper = (lower + 1 < n) ? lower + 1 : lower
-        frac = idx - lower
-        print a[lower] + frac * (a[upper] - a[lower])
-      }
-    }'
-}
-
-# Bilan final
+# ==============================
+# 7. Analyse Prometheus
+# ==============================
 echo
 echo "========================================"
 echo " BILAN FINAL"
@@ -407,51 +431,133 @@ echo "Début : $(date -d "@${START}")"
 echo "Fin   : $(date -d "@${END}")"
 echo
 
-# Calculer les maximums et percentiles par niveau de requêtes
-echo "=== Charges maximales et percentiles par niveau ==="
+overall_worst_cpu_p99_mcpu=-1
+overall_worst_cpu_pod=""
+overall_worst_mem_p99_mib=-1
+overall_worst_mem_pod=""
+
 for rate in "${RATES[@]}"; do
-  st="${RATE_START_TIMES[$rate]:-0}"
-  et="${RATE_END_TIMES[$rate]:-0}"
+  st="${STAGE_START[$rate]}"
+  mt="${MEASURE_START[$rate]}"
+  et="${STAGE_END[$rate]}"
 
-  if [ "$st" -gt 0 ] && [ "$et" -gt 0 ] && [ "$et" -ge "$st" ]; then
-    # Maximums (existing behaviour)
-    max_cpu=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($2 > max_cpu) max_cpu=$2} END {if (max_cpu=="") max_cpu=0; print max_cpu}' "${SAMPLES_FILE}")
-    max_mem=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($3 > max_mem) max_mem=$3} END {if (max_mem=="") max_mem=0; print max_mem}' "${SAMPLES_FILE}")
+  echo "=========================================="
+  echo " Rate ${rate} req/s"
+  echo "=========================================="
 
-    # Extract values in the time window
-    cpu_values=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {print $2}' "${SAMPLES_FILE}")
-    mem_values=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {print $3}' "${SAMPLES_FILE}")
-
-    # Percentiles
-    cpu_p50=$(get_percentile "$cpu_values" 50)
-    cpu_p95=$(get_percentile "$cpu_values" 95)
-    cpu_p99=$(get_percentile "$cpu_values" 99)
-    mem_p50=$(get_percentile "$mem_values" 50)
-    mem_p95=$(get_percentile "$mem_values" 95)
-    mem_p99=$(get_percentile "$mem_values" 99)
-
-    echo "  Rate ${rate} req/s :"
-    echo "    CPU max ${max_cpu} cores | p50 ${cpu_p50} p95 ${cpu_p95} p99 ${cpu_p99} cores"
-    echo "    MEM max ${max_mem} Mi   | p50 ${mem_p50} p95 ${mem_p95} p99 ${mem_p99} Mi"
-  else
-    echo "  Rate ${rate} req/s : données manquantes (st=${st}, et=${et})"
+  if [ "$st" -le 0 ] || [ "$mt" -le 0 ] || [ "$et" -le 0 ]; then
+    echo "  ERREUR : timestamps manquants pour ce palier"
+    continue
   fi
+
+  cpu_query="sum by (pod) (container_cpu_usage_seconds_total{namespace=\"${NAMESPACE}\",container=\"nginx\",image!=\"\"})"
+  mem_query="sum by (pod) (container_memory_working_set_bytes{namespace=\"${NAMESPACE}\",container=\"nginx\",image!=\"\"}) / 1024 / 1024"
+
+  resp_cpu=$(prom_query_range "$cpu_query" "$mt" "$et" "${PROM_STEP_SECONDS}")
+  resp_mem=$(prom_query_range "$mem_query" "$mt" "$et" "${PROM_STEP_SECONDS}")
+
+  pods_cpu=$(jq -r '.data.result[]?.metric.pod' <<<"$resp_cpu" | sort -u || true)
+  pods_mem=$(jq -r '.data.result[]?.metric.pod' <<<"$resp_mem" | sort -u || true)
+  pods=$( { echo "$pods_cpu"; echo "$pods_mem"; } | sort -u | sed '/^$/d' )
+
+  if [ -z "$pods" ]; then
+    echo "  Aucune métrique nginx trouvée pour ce palier"
+    continue
+  fi
+
+  rate_worst_cpu_p99=-1
+  rate_worst_cpu_pod=""
+  rate_worst_mem_p99=-1
+  rate_worst_mem_pod=""
+
+  while IFS= read -r pod; do
+    # ----- CPU -----
+    cpu_vals_mcpu=$(prepare_cpu_values_mcpu "$resp_cpu" "$pod")
+    read cpu_count cpu_max cpu_p50 cpu_p95 cpu_p99 <<<"$(compute_stats "$cpu_vals_mcpu")"
+
+    # ----- Mémoire -----
+    mem_vals_mib=$(prepare_mem_values_mib "$resp_mem" "$pod")
+    read mem_count mem_max mem_p50 mem_p95 mem_p99 <<<"$(compute_stats "$mem_vals_mib")"
+
+    printf "  pod %s\n" "$pod"
+    printf "    CPU max %.1fm | p50 %.1fm | p95 %.1fm | p99 %.1fm (n=%d)\n" \
+      "$cpu_max" "$cpu_p50" "$cpu_p95" "$cpu_p99" "$cpu_count"
+    printf "    MEM max %.1fMi | p50 %.1fMi | p95 %.1fMi | p99 %.1fMi (n=%d)\n" \
+      "$mem_max" "$mem_p50" "$mem_p95" "$mem_p99" "$mem_count"
+
+    if [ "$cpu_count" -lt 3 ]; then
+      echo "    ATTENTION : peu de points CPU pour ce pod"
+    fi
+    if [ "$mem_count" -lt 3 ]; then
+      echo "    ATTENTION : peu de points mémoire pour ce pod"
+    fi
+
+    # Mise à jour pire pod du palier CPU
+    if is_greater "$cpu_p99" "$rate_worst_cpu_p99"; then
+      rate_worst_cpu_p99="$cpu_p99"
+      rate_worst_cpu_pod="$pod"
+    fi
+
+    # Mise à jour pire pod du palier mémoire
+    if is_greater "$mem_p99" "$rate_worst_mem_p99"; then
+      rate_worst_mem_p99="$mem_p99"
+      rate_worst_mem_pod="$pod"
+    fi
+  done <<< "$pods"
+
+  echo
+  echo "  Worst CPU p99 : ${rate_worst_cpu_pod} = ${rate_worst_cpu_p99} mCPU"
+  echo "  Worst MEM p99 : ${rate_worst_mem_pod} = ${rate_worst_mem_p99} MiB"
+
+  # Mise à jour pire global CPU
+  if is_greater "$rate_worst_cpu_p99" "$overall_worst_cpu_p99_mcpu"; then
+    overall_worst_cpu_p99_mcpu="$rate_worst_cpu_p99"
+    overall_worst_cpu_pod="$rate_worst_cpu_pod"
+  fi
+
+  # Mise à jour pire global mémoire
+  if is_greater "$rate_worst_mem_p99" "$overall_worst_mem_p99_mib"; then
+    overall_worst_mem_p99_mib="$rate_worst_mem_p99"
+    overall_worst_mem_pod="$rate_worst_mem_pod"
+  fi
+
+  echo
 done
 
-# Calculer les maximums globaux
-overall_cpu=$(awk 'BEGIN {max=0} {if ($2 > max) max=$2} END {print max}' "${SAMPLES_FILE}")
-overall_mem=$(awk 'BEGIN {max=0} {if ($3 > max) max=$3} END {print max}' "${SAMPLES_FILE}")
-
+# ==============================
+# 8. Rapport final de dimensionnement
+# ==============================
 echo
-echo "=== Charge maximale globale ==="
-echo "  CPU maximale      : ${overall_cpu} cores"
-echo "  Mémoire maximale  : ${overall_mem} Mi"
-echo
+echo "=========================================="
+echo " FINAL SIZING DATA"
+echo "=========================================="
+if [ -n "$overall_worst_cpu_pod" ]; then
+  echo "Worst observed nginx CPU p99 : ${overall_worst_cpu_pod} = ${overall_worst_cpu_p99_mcpu} mCPU"
+else
+  echo "Worst observed nginx CPU p99 : aucune donnée"
+fi
 
-# Afficher une dernière fois les ressources
-echo "=== Ressources finales ==="
-kubectl top pods -n "${NAMESPACE}" --sort-by=cpu 2>/dev/null ||
-  echo "kubectl top indisponible (metrics-server ?)"
+if [ -n "$overall_worst_mem_pod" ]; then
+  echo "Worst observed nginx MEM p99 : ${overall_worst_mem_pod} = ${overall_worst_mem_p99_mib} MiB"
+else
+  echo "Worst observed nginx MEM p99 : aucune donnée"
+fi
+
+if [ -n "$overall_worst_cpu_pod" ] || [ -n "$overall_worst_mem_pod" ]; then
+  rec_cpu=$(awk -v p99="$overall_worst_cpu_p99_mcpu" -v m="$SAFETY_MARGIN_PERCENT" 'BEGIN{printf "%.1f", p99 * (1 + m/100)}')
+  rec_mem=$(awk -v p99="$overall_worst_mem_p99_mib" -v m="$SAFETY_MARGIN_PERCENT" 'BEGIN{printf "%.1f", p99 * (1 + m/100)}')
+
+  echo
+  echo "Marge de sécurité : ${SAFETY_MARGIN_PERCENT}%"
+  echo "CPU recommandé :  p99 ${overall_worst_cpu_p99_mcpu} mCPU * 1.${SAFETY_MARGIN_PERCENT} = ${rec_cpu} mCPU"
+  echo "MEM recommandé :  p99 ${overall_worst_mem_p99_mib} MiB * 1.${SAFETY_MARGIN_PERCENT} = ${rec_mem} MiB"
+  echo
+  echo "Suggestion pour un conteneur nginx :"
+  echo "  requests.cpu    = $(printf '%.0f' "$rec_cpu")m"
+  echo "  limits.cpu      = $(printf '%.0f' "$(awk -v r="$rec_cpu" 'BEGIN{print r*2}')")m"
+  echo "  requests.memory = ${rec_mem}Mi"
+  echo "  limits.memory   = $(awk -v r="$rec_mem" 'BEGIN{printf "%.0f", r*2}')Mi"
+fi
 
 echo
 echo "========================================"
