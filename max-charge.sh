@@ -11,7 +11,7 @@ PROM_LOCAL_PORT="9090"
 PROM_REMOTE_PORT="9090"
 
 # Durée de chaque étape
-DURATION=8
+DURATION=120
 
 # Tests
 RATES=(10 50 100 200 500)
@@ -133,38 +133,38 @@ echo
 
 echo "[3/6] Démarrage de la surveillance des ressources..."
 
-: > "${SAMPLES_FILE}"   # reset samples file
+: >"${SAMPLES_FILE}" # reset samples file
 
 monitor_resources() {
-    while true; do
-        # Only monitor nginx pods; ignore load-generator and other pods
-        METRICS=$(kubectl top pods -n "${NAMESPACE}" --no-headers 2>/dev/null \
-            | awk '$1 ~ /^nginx-/ {print}' || echo "")
+  while true; do
+    # Only monitor nginx pods; ignore load-generator and other pods
+    METRICS=$(kubectl top pods -n "${NAMESPACE}" --no-headers 2>/dev/null |
+      awk '$1 ~ /^nginx-/ {print}' || echo "")
 
-        if [ -n "$METRICS" ]; then
-            TOTAL_CPU="0"
-            TOTAL_MEM="0"
+    if [ -n "$METRICS" ]; then
+      TOTAL_CPU="0"
+      TOTAL_MEM="0"
 
-            while read -r POD CPU MEM; do
-                # Convert CPU: "100m" -> "0.100", "1" -> "1.000"
-                CPU_NUM=$(echo "$CPU" | sed 's/m$//')
-                if [[ "$CPU" == *m ]]; then
-                    CPU_NUM=$(echo "scale=3; $CPU_NUM / 1000" | bc)
-                fi
-
-                # Convert MEM: "100Mi" -> "100"
-                MEM_NUM=$(echo "$MEM" | sed 's/Mi$//')
-
-                TOTAL_CPU=$(echo "$TOTAL_CPU + $CPU_NUM" | bc)
-                TOTAL_MEM=$(echo "$TOTAL_MEM + $MEM_NUM" | bc)
-            done <<< "$METRICS"
-
-            TIMESTAMP=$(date +%s)
-            echo "$TIMESTAMP $TOTAL_CPU $TOTAL_MEM" >> "${SAMPLES_FILE}"
+      while read -r POD CPU MEM; do
+        # Convert CPU: "100m" -> "0.100", "1" -> "1.000"
+        CPU_NUM=$(echo "$CPU" | sed 's/m$//')
+        if [[ "$CPU" == *m ]]; then
+          CPU_NUM=$(echo "scale=3; $CPU_NUM / 1000" | bc)
         fi
 
-        sleep 2
-    done
+        # Convert MEM: "100Mi" -> "100"
+        MEM_NUM=$(echo "$MEM" | sed 's/Mi$//')
+
+        TOTAL_CPU=$(echo "$TOTAL_CPU + $CPU_NUM" | bc)
+        TOTAL_MEM=$(echo "$TOTAL_MEM + $MEM_NUM" | bc)
+      done <<<"$METRICS"
+
+      TIMESTAMP=$(date +%s)
+      echo "$TIMESTAMP $TOTAL_CPU $TOTAL_MEM" >>"${SAMPLES_FILE}"
+    fi
+
+    sleep 2
+  done
 }
 
 # Lancer la surveillance en arrière-plan
@@ -286,7 +286,7 @@ echo
 
 # Exécuter les tests de charge
 for RATE in 10 50 100 200 500; do
-    run_load "$RATE" 8 || exit 1
+    run_load "$RATE" 120 || exit 1
     echo
 done
 
@@ -318,9 +318,9 @@ echo "[6/6] Démarrage du suivi des logs..."
 
 # Capture les logs dans un fichier temporaire pour les traiter
 LOG_FILE="/tmp/load_generator.log"
-: > "${LOG_FILE}"
+: >"${LOG_FILE}"
 
-kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 > "${LOG_FILE}" &
+kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 >"${LOG_FILE}" &
 KUBECTL_LOGS_PID=$!
 
 # Afficher les logs en direct (sans modifier les tableaux du parent)
@@ -353,20 +353,20 @@ wait "${KUBECTL_LOGS_PID}" 2>/dev/null || true
 # Extraction des temps de début/fin de chaque niveau
 # --------------------------------------------------
 for rate in "${RATES[@]}"; do
-    start_line=$(grep -m1 "MARKER_START_${rate}" "${LOG_FILE}" || true)
-    end_line=$(grep -m1 "MARKER_END_${rate}" "${LOG_FILE}" || true)
+  start_line=$(grep -m1 "MARKER_START_${rate}" "${LOG_FILE}" || true)
+  end_line=$(grep -m1 "MARKER_END_${rate}" "${LOG_FILE}" || true)
 
-    if [ -n "$start_line" ]; then
-        RATE_START_TIMES[$rate]=$(echo "$start_line" | awk '{print $NF}')
-    else
-        RATE_START_TIMES[$rate]=0
-    fi
+  if [ -n "$start_line" ]; then
+    RATE_START_TIMES[$rate]=$(echo "$start_line" | awk '{print $NF}')
+  else
+    RATE_START_TIMES[$rate]=0
+  fi
 
-    if [ -n "$end_line" ]; then
-        RATE_END_TIMES[$rate]=$(echo "$end_line" | awk '{print $NF}')
-    else
-        RATE_END_TIMES[$rate]=0
-    fi
+  if [ -n "$end_line" ]; then
+    RATE_END_TIMES[$rate]=$(echo "$end_line" | awk '{print $NF}')
+  else
+    RATE_END_TIMES[$rate]=0
+  fi
 done
 
 # Bilan final
@@ -382,16 +382,16 @@ echo
 # Calculer les maximums par niveau de requêtes
 echo "=== Charges maximales par niveau ==="
 for rate in "${RATES[@]}"; do
-    st="${RATE_START_TIMES[$rate]:-0}"
-    et="${RATE_END_TIMES[$rate]:-0}"
+  st="${RATE_START_TIMES[$rate]:-0}"
+  et="${RATE_END_TIMES[$rate]:-0}"
 
-    if [ "$st" -gt 0 ] && [ "$et" -gt 0 ] && [ "$et" -ge "$st" ]; then
-        max_cpu=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($2 > max_cpu) max_cpu=$2} END {if (max_cpu=="") max_cpu=0; print max_cpu}' "${SAMPLES_FILE}")
-        max_mem=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($3 > max_mem) max_mem=$3} END {if (max_mem=="") max_mem=0; print max_mem}' "${SAMPLES_FILE}")
-        echo "  Rate ${rate} req/s : CPU max ${max_cpu} cores, MEM max ${max_mem} Mi"
-    else
-        echo "  Rate ${rate} req/s : données manquantes (st=${st}, et=${et})"
-    fi
+  if [ "$st" -gt 0 ] && [ "$et" -gt 0 ] && [ "$et" -ge "$st" ]; then
+    max_cpu=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($2 > max_cpu) max_cpu=$2} END {if (max_cpu=="") max_cpu=0; print max_cpu}' "${SAMPLES_FILE}")
+    max_mem=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($3 > max_mem) max_mem=$3} END {if (max_mem=="") max_mem=0; print max_mem}' "${SAMPLES_FILE}")
+    echo "  Rate ${rate} req/s : CPU max ${max_cpu} cores, MEM max ${max_mem} Mi"
+  else
+    echo "  Rate ${rate} req/s : données manquantes (st=${st}, et=${et})"
+  fi
 done
 
 # Calculer les maximums globaux
@@ -406,8 +406,8 @@ echo
 
 # Afficher une dernière fois les ressources
 echo "=== Ressources finales ==="
-kubectl top pods -n "${NAMESPACE}" --sort-by=cpu 2>/dev/null || \
-    echo "kubectl top indisponible (metrics-server ?)"
+kubectl top pods -n "${NAMESPACE}" --sort-by=cpu 2>/dev/null ||
+  echo "kubectl top indisponible (metrics-server ?)"
 
 echo
 echo "========================================"
