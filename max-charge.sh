@@ -232,7 +232,7 @@ echo "OK : load-generator Running."
 echo
 
 # --------------------------------------------------
-# 5. START + watch (resource monitor)
+# 5. START + logs
 # --------------------------------------------------
 
 echo "[5/6] Démarrage de la mesure..."
@@ -242,37 +242,9 @@ START=$(date +%s)
 echo "START = ${START}"
 echo
 
-# Fonction de surveillance des ressources
-monitor_resources() {
-    local start_ts="$1"
-    local end_ts="$2"
-    echo "========================================"
-    echo " RESOURCE WATCH"
-    echo "========================================"
-    echo "Depuis : $(date -d "@${start_ts}")"
-    echo "Maintenant : $(date)"
-    echo
-    # Afficher l'utilisation CPU/mémoire des pods du namespace dev
-    kubectl top pods -n "${NAMESPACE}" --sort-by=cpu 2>/dev/null || \
-        echo "kubectl top indisponible (metrics-server ?)"
-    echo
-}
-
-(
-  while true; do
-    # Effacer l'écran sans dépendre du terminal
-    printf '\033[2J\033[H'
-    monitor_resources "${START}" "$(date +%s)"
-    sleep 5
-  done
-) &
-
-WATCH_PID=$!
-
-# Affichage des logs du load-generator
-kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 |
-  sed 's/^/[LOAD] /' &
-
+# Afficher les logs du load-generator en temps réel
+echo "=== Logs du load-generator ==="
+kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 &
 LOAD_LOG_PID=$!
 
 # --------------------------------------------------
@@ -280,6 +252,8 @@ LOAD_LOG_PID=$!
 # --------------------------------------------------
 
 echo "[6/6] Test en cours..."
+echo "Le test va durer environ $((${#RATES[@]} * DURATION)) secondes..."
+echo
 
 kubectl -n "${NAMESPACE}" wait \
   --for=jsonpath='{.status.phase}'=Succeeded \
@@ -292,6 +266,13 @@ echo
 echo "END = ${END}"
 echo
 
+# Arrêter le suivi des logs
+if [ -n "${LOAD_LOG_PID}" ]; then
+    kill "${LOAD_LOG_PID}" 2>/dev/null || true
+    wait "${LOAD_LOG_PID}" 2>/dev/null || true
+    LOAD_LOG_PID=""
+fi
+
 # Bilan final
 echo
 echo "========================================"
@@ -303,7 +284,9 @@ echo "Fin   : $(date -d "@${END}")"
 echo
 
 # Afficher une dernière fois les ressources
-monitor_resources "${START}" "${END}"
+echo "=== Ressources finales ==="
+kubectl top pods -n "${NAMESPACE}" --sort-by=cpu 2>/dev/null || \
+    echo "kubectl top indisponible (metrics-server ?)"
 
 echo
 echo "========================================"
