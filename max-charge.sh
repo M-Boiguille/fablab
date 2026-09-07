@@ -210,12 +210,15 @@ run_load() {
     END_TIME=$((START_TIME + DURATION))
 
     RESULTS_FILE="/tmp/curl_results.log"
+    : > "${RESULTS_FILE}"
 
+    # Send batches of RATE requests every second for DURATION seconds.
+    # The previous version waited for all requests of a batch to finish
+    # before starting the next batch, which artificially limited the
+    # achieved request rate. Now we do not wait between batches; we sleep
+    # exactly 1 second after starting each batch, then count all results
+    # only after the whole stage has finished.
     while [ "$(date +%s)" -lt "$END_TIME" ]; do
-        # Reset results file for this iteration
-        : > "${RESULTS_FILE}"
-
-        # Lancer RATE requêtes en parallèle
         i=0
         while [ "$i" -lt "$RATE" ]; do
             (
@@ -233,23 +236,21 @@ run_load() {
             i=$((i + 1))
         done
 
-        # Attendre que toutes les requêtes soient terminées
-        wait || true
-
-        # Compter les résultats
-        OK_COUNT=$(grep -c "OK" "${RESULTS_FILE}" 2>/dev/null)
-        FAIL_COUNT=$(grep -c "FAIL" "${RESULTS_FILE}" 2>/dev/null)
-        OK_COUNT=${OK_COUNT:-0}
-        FAIL_COUNT=${FAIL_COUNT:-0}
-
-        TOTAL=$((TOTAL + OK_COUNT))
-        ERRORS=$((ERRORS + FAIL_COUNT))
-
-        echo "  - Itération : ${OK_COUNT} OK, ${FAIL_COUNT} erreurs"
-
-        # Sleep to control request rate
+        # Wait one second before sending the next batch
         sleep 1
     done
+
+    # Wait for all in-flight requests to finish
+    wait || true
+
+    # Count results by reading the output file
+    OK_COUNT=$(grep -c "OK" "${RESULTS_FILE}" 2>/dev/null)
+    FAIL_COUNT=$(grep -c "FAIL" "${RESULTS_FILE}" 2>/dev/null)
+    OK_COUNT=${OK_COUNT:-0}
+    FAIL_COUNT=${FAIL_COUNT:-0}
+
+    TOTAL=$((TOTAL + OK_COUNT))
+    ERRORS=$((ERRORS + FAIL_COUNT))
 
     # Clean temporary file
     rm -f "${RESULTS_FILE}"
@@ -369,6 +370,33 @@ for rate in "${RATES[@]}"; do
   fi
 done
 
+# --------------------------------------------------
+# Helpers for percentile calculation
+# --------------------------------------------------
+get_percentile() {
+  # $1: sorted values (one per line)
+  # $2: percentile as integer 0-100
+  # Outputs the requested percentile value
+  local values="$1"
+  local p="$2"
+
+  echo "$values" | sort -n | awk -v p="$p" '
+    BEGIN { n = 0 }
+    { a[n++] = $1 }
+    END {
+      if (n == 0) {
+        print "0"
+      } else {
+        # Linear interpolation between closest ranks
+        idx = (p / 100.0) * (n - 1)
+        lower = int(idx)
+        upper = (lower + 1 < n) ? lower + 1 : lower
+        frac = idx - lower
+        print a[lower] + frac * (a[upper] - a[lower])
+      }
+    }'
+}
+
 # Bilan final
 echo
 echo "========================================"
@@ -379,16 +407,32 @@ echo "Début : $(date -d "@${START}")"
 echo "Fin   : $(date -d "@${END}")"
 echo
 
-# Calculer les maximums par niveau de requêtes
-echo "=== Charges maximales par niveau ==="
+# Calculer les maximums et percentiles par niveau de requêtes
+echo "=== Charges maximales et percentiles par niveau ==="
 for rate in "${RATES[@]}"; do
   st="${RATE_START_TIMES[$rate]:-0}"
   et="${RATE_END_TIMES[$rate]:-0}"
 
   if [ "$st" -gt 0 ] && [ "$et" -gt 0 ] && [ "$et" -ge "$st" ]; then
+    # Maximums (existing behaviour)
     max_cpu=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($2 > max_cpu) max_cpu=$2} END {if (max_cpu=="") max_cpu=0; print max_cpu}' "${SAMPLES_FILE}")
     max_mem=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {if ($3 > max_mem) max_mem=$3} END {if (max_mem=="") max_mem=0; print max_mem}' "${SAMPLES_FILE}")
-    echo "  Rate ${rate} req/s : CPU max ${max_cpu} cores, MEM max ${max_mem} Mi"
+
+    # Extract values in the time window
+    cpu_values=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {print $2}' "${SAMPLES_FILE}")
+    mem_values=$(awk -v start="$st" -v end="$et" '$1 >= start && $1 <= end {print $3}' "${SAMPLES_FILE}")
+
+    # Percentiles
+    cpu_p50=$(get_percentile "$cpu_values" 50)
+    cpu_p95=$(get_percentile "$cpu_values" 95)
+    cpu_p99=$(get_percentile "$cpu_values" 99)
+    mem_p50=$(get_percentile "$mem_values" 50)
+    mem_p95=$(get_percentile "$mem_values" 95)
+    mem_p99=$(get_percentile "$mem_values" 99)
+
+    echo "  Rate ${rate} req/s :"
+    echo "    CPU max ${max_cpu} cores | p50 ${cpu_p50} p95 ${cpu_p95} p99 ${cpu_p99} cores"
+    echo "    MEM max ${max_mem} Mi   | p50 ${mem_p50} p95 ${mem_p95} p99 ${mem_p99} Mi"
   else
     echo "  Rate ${rate} req/s : données manquantes (st=${st}, et=${et})"
   fi
