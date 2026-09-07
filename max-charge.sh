@@ -137,7 +137,9 @@ echo "[3/6] Démarrage de la surveillance des ressources..."
 
 monitor_resources() {
     while true; do
-        METRICS=$(kubectl top pods -n "${NAMESPACE}" --no-headers 2>/dev/null || echo "")
+        # Only monitor nginx pods; ignore load-generator and other pods
+        METRICS=$(kubectl top pods -n "${NAMESPACE}" --no-headers 2>/dev/null \
+            | awk '$1 ~ /^nginx-/ {print}' || echo "")
 
         if [ -n "$METRICS" ]; then
             TOTAL_CPU="0"
