@@ -144,8 +144,11 @@ run_load() {
     echo "LOAD ${RATE} req/s - ${DURATION}s"
     echo "========================================"
 
-    sec=0
-    while [ "$sec" -lt "$DURATION" ]; do
+    # Temps de début
+    START_TIME=$(date +%s)
+    END_TIME=$((START_TIME + DURATION))
+
+    while [ "$(date +%s)" -lt "$END_TIME" ]; do
         # Lancer RATE requêtes en parallèle
         i=0
         while [ "$i" -lt "$RATE" ]; do
@@ -177,9 +180,7 @@ run_load() {
         # Nettoyer le fichier temporaire
         rm -f /tmp/curl_results_$$.log
 
-        echo "  - Seconde $((sec+1)) : ${OK_COUNT} OK, ${FAIL_COUNT} erreurs"
-
-        sec=$((sec + 1))
+        echo "  - Itération : ${OK_COUNT} OK, ${FAIL_COUNT} erreurs"
     done
 
     echo
@@ -237,7 +238,7 @@ echo "OK : load-generator Running."
 echo
 
 # --------------------------------------------------
-# 5. START + logs
+# 5. START + logs + mesure de charge
 # --------------------------------------------------
 
 echo "[5/6] Démarrage de la mesure..."
@@ -253,13 +254,39 @@ kubectl -n "${NAMESPACE}" logs -f "${LOAD_POD}" 2>&1 &
 LOAD_LOG_PID=$!
 
 # --------------------------------------------------
-# 6. Attente de la fin du test
+# 6. Attente de la fin du test + mesure de charge
 # --------------------------------------------------
 
 echo "[6/6] Test en cours..."
 echo "Le test va durer environ $((${#RATES[@]} * DURATION)) secondes..."
 echo
 
+# Variable pour stocker la charge maximale
+MAX_LOAD=0
+
+# Fonction pour interroger Prometheus et mettre à jour MAX_LOAD
+monitor_load() {
+    while true; do
+        # Requête Prometheus pour obtenir le nombre de requêtes par seconde
+        # (adaptez la requête selon vos métriques)
+        LOAD=$(curl -s "http://127.0.0.1:${PROM_LOCAL_PORT}/api/v1/query" \
+            --data-urlencode 'query=sum(rate(nginx_ingress_controller_requests[1m]))' \
+            | jq -r '.data.result[0].value[1] // 0' 2>/dev/null || echo 0)
+
+        # Si LOAD est numérique et supérieur à MAX_LOAD, mettre à jour
+        if [[ "$LOAD" =~ ^[0-9]+(\.[0-9]+)?$ ]] && (( $(echo "$LOAD > $MAX_LOAD" | bc -l) )); then
+            MAX_LOAD=$LOAD
+        fi
+
+        sleep 2
+    done
+}
+
+# Lancer la surveillance en arrière-plan
+monitor_load &
+MONITOR_PID=$!
+
+# Attendre la fin du test
 kubectl -n "${NAMESPACE}" wait \
   --for=jsonpath='{.status.phase}'=Succeeded \
   "pod/${LOAD_POD}" \
@@ -270,6 +297,10 @@ END=$(date +%s)
 echo
 echo "END = ${END}"
 echo
+
+# Arrêter la surveillance
+kill "${MONITOR_PID}" 2>/dev/null || true
+wait "${MONITOR_PID}" 2>/dev/null || true
 
 # Arrêter le suivi des logs
 if [ -n "${LOAD_LOG_PID}" ]; then
@@ -286,6 +317,8 @@ echo "========================================"
 echo
 echo "Début : $(date -d "@${START}")"
 echo "Fin   : $(date -d "@${END}")"
+echo
+echo "Charge maximale observée : ${MAX_LOAD} req/s"
 echo
 
 # Afficher une dernière fois les ressources
