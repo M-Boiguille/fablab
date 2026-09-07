@@ -10,8 +10,6 @@ PROM_SERVICE="prometheus"
 PROM_LOCAL_PORT="9090"
 PROM_REMOTE_PORT="9090"
 
-MAX_CHARGE="./max-charge.sh"
-
 # Durée de chaque étape
 DURATION=8
 
@@ -67,33 +65,38 @@ echo "Durée/stage     : ${DURATION}s"
 echo
 
 # --------------------------------------------------
-# 1. Port-forward Prometheus
+# 1. Port-forward Prometheus (only once)
 # --------------------------------------------------
 
 echo "[1/6] Démarrage du port-forward Prometheus..."
 
-kubectl -n "${PROM_NAMESPACE}" port-forward \
-  "svc/${PROM_SERVICE}" \
-  "${PROM_LOCAL_PORT}:${PROM_REMOTE_PORT}" \
-  >/tmp/prometheus-port-forward.log 2>&1 &
+# Check if port already in use
+if ! curl -fsS "http://127.0.0.1:${PROM_LOCAL_PORT}/-/ready" >/dev/null 2>&1; then
+  kubectl -n "${PROM_NAMESPACE}" port-forward \
+    "svc/${PROM_SERVICE}" \
+    "${PROM_LOCAL_PORT}:${PROM_REMOTE_PORT}" \
+    >/tmp/prometheus-port-forward.log 2>&1 &
 
-PORT_FORWARD_PID=$!
+  PORT_FORWARD_PID=$!
 
-sleep 2
+  sleep 2
 
-if ! kill -0 "${PORT_FORWARD_PID}" 2>/dev/null; then
-  echo "ERREUR : le port-forward Prometheus n'a pas démarré."
-  cat /tmp/prometheus-port-forward.log
-  exit 1
-fi
+  if ! kill -0 "${PORT_FORWARD_PID}" 2>/dev/null; then
+    echo "ERREUR : le port-forward Prometheus n'a pas démarré."
+    cat /tmp/prometheus-port-forward.log
+    exit 1
+  fi
 
-if ! curl -fsS \
-  "http://127.0.0.1:${PROM_LOCAL_PORT}/-/ready" \
-  >/dev/null; then
+  if ! curl -fsS \
+    "http://127.0.0.1:${PROM_LOCAL_PORT}/-/ready" \
+    >/dev/null; then
 
-  echo "ERREUR : Prometheus n'est pas accessible."
-  cat /tmp/prometheus-port-forward.log
-  exit 1
+    echo "ERREUR : Prometheus n'est pas accessible."
+    cat /tmp/prometheus-port-forward.log
+    exit 1
+  fi
+else
+  echo "Port-forward déjà actif, on le réutilise."
 fi
 
 echo "OK : Prometheus accessible."
@@ -141,12 +144,9 @@ run_load() {
     echo "LOAD ${RATE} req/s - ${DURATION}s"
     echo "========================================"
 
-    END_TIME=$((SECONDS + DURATION))
-
-    while [ "$SECONDS" -lt "$END_TIME" ]; do
-
-        # Lancer les requêtes en parallèle avec un contrôle
-        for i in $(seq 1 "$RATE"); do
+    for ((sec=0; sec<DURATION; sec++)); do
+        # Lancer RATE requêtes en parallèle
+        for ((i=0; i<RATE; i++)); do
             (
                 if curl -s \
                     -o /dev/null \
@@ -174,16 +174,18 @@ run_load() {
         # Nettoyer le fichier temporaire
         rm -f /tmp/curl_results_$$.log
 
-        echo "  - Seconde écoulée : ${OK_COUNT} OK, ${FAIL_COUNT} erreurs"
-
-        sleep 1
+        echo "  - Seconde $((sec+1)) : ${OK_COUNT} OK, ${FAIL_COUNT} erreurs"
     done
 
     echo
     echo "RESULTAT pour ${RATE} req/s :"
     echo "  - Total requêtes : ${TOTAL}"
     echo "  - Erreurs        : ${ERRORS}"
-    echo "  - Taux de succès : $(( (TOTAL - ERRORS) * 100 / TOTAL ))%"
+    if [ "$TOTAL" -gt 0 ]; then
+        echo "  - Taux de succès : $(( (TOTAL - ERRORS) * 100 / TOTAL ))%"
+    else
+        echo "  - Taux de succès : N/A (aucune requête)"
+    fi
 
     if [ "$ERRORS" -gt 0 ]; then
         echo "ERREUR : ${ERRORS} requêtes ont échoué sur ${TOTAL}"
@@ -230,7 +232,7 @@ echo "OK : load-generator Running."
 echo
 
 # --------------------------------------------------
-# 5. START + watch
+# 5. START + watch (resource monitor)
 # --------------------------------------------------
 
 echo "[5/6] Démarrage de la mesure..."
@@ -240,19 +242,27 @@ START=$(date +%s)
 echo "START = ${START}"
 echo
 
-(
-  while true; do
-    clear
-
+# Fonction de surveillance des ressources
+monitor_resources() {
+    local start_ts="$1"
+    local end_ts="$2"
     echo "========================================"
     echo " RESOURCE WATCH"
     echo "========================================"
-    echo "Depuis : $(date -d "@${START}")"
+    echo "Depuis : $(date -d "@${start_ts}")"
     echo "Maintenant : $(date)"
     echo
+    # Afficher l'utilisation CPU/mémoire des pods du namespace dev
+    kubectl top pods -n "${NAMESPACE}" --sort-by=cpu 2>/dev/null || \
+        echo "kubectl top indisponible (metrics-server ?)"
+    echo
+}
 
-    "${MAX_CHARGE}" "${START}" "$(date +%s)"
-
+(
+  while true; do
+    # Effacer l'écran sans dépendre du terminal
+    printf '\033[2J\033[H'
+    monitor_resources "${START}" "$(date +%s)"
     sleep 5
   done
 ) &
@@ -292,7 +302,8 @@ echo "Début : $(date -d "@${START}")"
 echo "Fin   : $(date -d "@${END}")"
 echo
 
-"${MAX_CHARGE}" "${START}" "${END}"
+# Afficher une dernière fois les ressources
+monitor_resources "${START}" "${END}"
 
 echo
 echo "========================================"
