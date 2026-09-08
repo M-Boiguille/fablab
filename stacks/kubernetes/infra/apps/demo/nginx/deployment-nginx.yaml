@@ -49,10 +49,10 @@ spec:
         resources:
           requests:
             cpu: 50m
-            memory: 64Mi
+            memory: 6Mi
           limits:
-            cpu: 250m
-            memory: 200Mi
+            cpu: 150m
+            memory: 16Mi
         ports:
         - containerPort: 80
           name: nginx
@@ -116,4 +116,3 @@ spec:
           emptyDir: {}
       restartPolicy: Always
 ---
-
