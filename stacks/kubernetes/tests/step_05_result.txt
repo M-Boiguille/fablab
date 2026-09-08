@@ -1,0 +1,13 @@
+PASS
+--- Summary ---
+Step 05 validation: 7 passed, 0 failed
+PASS | kustomize build successful
+PASS | Infrastructure deployed
+PASS | All namespaces are Active
+PASS | ResourceQuota and LimitRange present in all namespaces
+PASS | LimitRange default values applied
+PASS | LimitRange max rejection enforced
+PASS | ResourceQuota pod limit enforced (created 3 pod(s) before rejection)
+# PASS: 7
+# FAIL: 0
+# PASS | Step 05 validation successful

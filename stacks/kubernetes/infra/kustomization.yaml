@@ -7,14 +7,14 @@ resources:
   # rbac
   - base/rbac/rbac.yaml
   # limit_ranges and resource_quotas
-#  - base/limit_ranges/limitrange_dev.yaml
-#  - base/resource_quotas/resourcequota_dev.yaml
-#  - base/limit_ranges/limitrange_prod.yaml
-#  - base/resource_quotas/resourcequota_prod.yaml
-#  - base/limit_ranges/limitrange_staging.yaml
-#  - base/resource_quotas/resourcequota_staging.yaml
-#  - base/limit_ranges/limitrange_tools.yaml
-#  - base/resource_quotas/resourcequota_tools.yaml
+  - base/limit_ranges/limitrange_dev.yaml
+  - base/resource_quotas/resourcequota_dev.yaml
+  - base/limit_ranges/limitrange_prod.yaml
+  - base/resource_quotas/resourcequota_prod.yaml
+  - base/limit_ranges/limitrange_staging.yaml
+  - base/resource_quotas/resourcequota_staging.yaml
+  - base/limit_ranges/limitrange_tools.yaml
+  - base/resource_quotas/resourcequota_tools.yaml
   # nginx
   - apps/demo/nginx/configmap-nginx.yaml
   - apps/demo/nginx/deployment-nginx.yaml
