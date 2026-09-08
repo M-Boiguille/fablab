@@ -3,19 +3,71 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_OVERLAY="$SCRIPT_DIR/../infra/"
+RESULT_FILE="$SCRIPT_DIR/step_05_result.txt"
+
+PASS_COUNT=0
+FAIL_COUNT=0
+LOG_ENTRIES=()
+
+log_pass() {
+  local msg="$1"
+  local ts
+  ts=$(date '+%Y-%m-%d %H:%M:%S')
+  LOG_ENTRIES+=("[$ts] PASS | $msg")
+  PASS_COUNT=$((PASS_COUNT + 1))
+}
+
+log_fail() {
+  local msg="$1"
+  local ts
+  ts=$(date '+%Y-%m-%d %H:%M:%S')
+  LOG_ENTRIES+=("[$ts] FAIL | $msg")
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+}
 
 fail() {
-  echo "❌ $1" >&2
+  local msg="$1"
+  log_fail "$msg"
+  echo "❌ $msg" >&2
   exit 1
 }
 
-command -v kubectl >/dev/null 2>&1 || fail "kubectl is required but not installed"
+write_result_file() {
+  local status="PASS"
+  local status_word="successful"
+  if (( FAIL_COUNT > 0 )); then
+    status="FAIL"
+    status_word="failed"
+  fi
+
+  local now
+  now=$(date '+%Y-%m-%d %H:%M:%S')
+
+  {
+    echo "$status"
+    echo "--- Summary ---"
+    echo "[$now] Step 05 validation: $PASS_COUNT passed, $FAIL_COUNT failed"
+    for entry in "${LOG_ENTRIES[@]}"; do
+      echo "$entry"
+    done
+    echo "# PASS: $PASS_COUNT"
+    echo "# FAIL: $FAIL_COUNT"
+    echo "[$now] # $status | Step 05 validation $status_word"
+  } > "$RESULT_FILE"
+}
 
 cleanup() {
-  echo "🧹 Cleaning up infrastructure..."
-  kubectl delete -k "$INFRA_OVERLAY" || true
+  echo "🧹 Cleaning up infrastructure..." >&2
+  kubectl delete -k "$INFRA_OVERLAY" >/dev/null 2>&1 || true
 }
-trap cleanup EXIT
+
+exit_handler() {
+  cleanup
+  write_result_file
+}
+trap exit_handler EXIT
+
+command -v kubectl >/dev/null 2>&1 || fail "kubectl is required but not installed"
 
 wait_for_namespace() {
   local ns="$1"
@@ -59,29 +111,33 @@ wait_for_pod_field() {
 }
 
 # 1. Validate kustomize build
-echo "🔧 Validating kustomize build..."
-kubectl kustomize "$INFRA_OVERLAY" || fail "kustomize build failed"
+echo "🔧 Validating kustomize build..." >&2
+kubectl kustomize "$INFRA_OVERLAY" >/dev/null || fail "kustomize build failed"
+log_pass "kustomize build successful"
 
 # 2. Deploy infrastructure
-echo "🚀 Deploying infrastructure from overlay tests..."
-kubectl apply -k "$INFRA_OVERLAY"
+echo "🚀 Deploying infrastructure..." >&2
+kubectl apply -k "$INFRA_OVERLAY" >/dev/null || fail "infrastructure deployment failed"
+log_pass "Infrastructure deployed"
 
 # 3. Wait for namespaces to become Active
 for ns in dev staging prod tools; do
-  echo "⏳ Waiting for namespace $ns..."
+  echo "⏳ Waiting for namespace $ns..." >&2
   wait_for_namespace "$ns" 60 || fail "Namespace $ns did not become Active"
 done
+log_pass "All namespaces are Active"
 
 # 4. Verify ResourceQuota and LimitRange presence
-echo "🔎 Checking ResourceQuota and LimitRange in each namespace..."
+echo "🔎 Checking ResourceQuota and LimitRange in each namespace..." >&2
 for ns in dev staging prod tools; do
   kubectl get resourcequota -n "$ns" >/dev/null || fail "No ResourceQuota found in $ns"
   kubectl get limitrange -n "$ns" >/dev/null || fail "No LimitRange found in $ns"
 done
+log_pass "ResourceQuota and LimitRange present in all namespaces"
 
 # 5. Test LimitRange default values
-echo "🧪 Testing LimitRange default values..."
-kubectl apply -f - <<'EOF'
+echo "🧪 Testing LimitRange default values..." >&2
+kubectl apply -f - >/dev/null <<'EOF' || fail "failed to create test-limitrange-default pod"
 apiVersion: v1
 kind: Pod
 metadata:
@@ -102,13 +158,13 @@ fi
 
 [[ "$CPU_REQUEST" == "50m" ]] || fail "Expected default CPU request 50m, got '$CPU_REQUEST'"
 [[ "$MEM_REQUEST" == "6Mi" ]] || fail "Expected default memory request 6Mi, got '$MEM_REQUEST'"
-echo "✅ Default requests correctly applied (CPU: $CPU_REQUEST, memory: $MEM_REQUEST)"
+log_pass "LimitRange default values applied"
 
-kubectl delete pod test-limitrange-default -n dev --ignore-not-found=true
+kubectl delete pod test-limitrange-default -n dev --ignore-not-found=true >/dev/null 2>&1 || true
 
 # 6. Test LimitRange max rejection
-echo "🧪 Testing LimitRange max rejection..."
-if kubectl apply -f - <<'EOF'
+echo "🧪 Testing LimitRange max rejection..." >&2
+if kubectl apply -f - >/dev/null 2>&1 <<'EOF'
 apiVersion: v1
 kind: Pod
 metadata:
@@ -129,13 +185,13 @@ EOF
 then
   fail "Pod exceeding LimitRange max should have been rejected"
 else
-  echo "✅ Pod exceeding LimitRange max was correctly rejected"
+  log_pass "LimitRange max rejection enforced"
 fi
 
 # 7. Test ResourceQuota pod count limit
-echo "🧪 Testing ResourceQuota pod count limit..."
+echo "🧪 Testing ResourceQuota pod count limit..." >&2
 for i in $(seq 1 5); do
-  kubectl apply -f - <<EOF
+  kubectl apply -f - >/dev/null <<EOF || fail "failed to create quota-test-$i pod"
 apiVersion: v1
 kind: Pod
 metadata:
@@ -155,7 +211,7 @@ spec:
 EOF
 done
 
-if kubectl apply -f - <<'EOF'
+if kubectl apply -f - >/dev/null 2>&1 <<'EOF'
 apiVersion: v1
 kind: Pod
 metadata:
@@ -176,11 +232,11 @@ EOF
 then
   fail "6th pod should have been rejected due to ResourceQuota pods limit"
 else
-  echo "✅ 6th pod was correctly rejected due to ResourceQuota pods limit"
+  log_pass "ResourceQuota pod count limit enforced"
 fi
 
 # Cleanup test pods manually (trap cleanup will also remove the whole overlay)
-kubectl delete pod quota-test-{1..5} -n dev --ignore-not-found=true
+kubectl delete pod quota-test-{1..5} -n dev --ignore-not-found=true >/dev/null 2>&1 || true
 
-echo "✅ Step 05 validation passed"
+# The result file is written by the EXIT trap
 exit 0
