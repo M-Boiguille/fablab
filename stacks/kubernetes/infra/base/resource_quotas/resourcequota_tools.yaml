@@ -1,0 +1,11 @@
+kind: ResourceQuota
+metadata:
+  name: tools-ressources
+spec:
+  hard:
+    requests.cpu: 150m
+    limits.cpu: 300m
+    requests.memory: 96Mi
+    limits.memory: 192Mi
+    pods: 4
+
