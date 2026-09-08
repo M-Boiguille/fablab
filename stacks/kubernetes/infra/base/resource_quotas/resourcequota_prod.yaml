@@ -5,10 +5,10 @@ metadata:
   namespace: prod
 spec:
   hard:
-    requests.cpu: "242m"
-    requests.memory: "30Mi"
-    limits.cpu: "424m"
-    limits.memory: "61Mi"
+    requests.cpu: "1512m"
+    requests.memory: "161Mi"
+    limits.cpu: "1512m"
+    limits.memory: "161Mi"
     pods: 7
     services: 2
     count/deployment.apps: 2
