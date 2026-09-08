@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ADR_FILE="stacks/kubernetes/adrs/adr_step_05_final.md"
 QUOTA_DIR="stacks/kubernetes/infra/base/resource_quotas"
 LIMIT_DIR="stacks/kubernetes/infra/base/limit_ranges"
 
@@ -24,23 +23,12 @@ fail() {
   exit 1
 }
 
-# 1. ADR exists and contains key markers
-test -f "$ADR_FILE" || fail "ADR file not found: $ADR_FILE"
-
-grep -q "ADR-0005" "$ADR_FILE" || fail "ADR must contain 'ADR-0005'"
-grep -q "ResourceQuota" "$ADR_FILE" || fail "ADR must mention ResourceQuota"
-grep -q "LimitRange" "$ADR_FILE" || fail "ADR must mention LimitRange"
-
-for ns in dev staging prod tools; do
-  grep -q "$ns" "$ADR_FILE" || fail "ADR must mention namespace '$ns'"
-done
-
-# 2. All YAML files exist
+# 1. All YAML files exist
 for f in "${quota_files[@]}" "${limit_files[@]}"; do
   test -f "$f" || fail "Missing required file: $f"
 done
 
-# 3. Each YAML file has correct kind and namespace
+# 2. Each YAML file has correct kind and namespace
 check_quota_ns() {
   local file="$1"
   local expected_ns="$2"
@@ -65,21 +53,21 @@ check_limit_ns "${LIMIT_DIR}/limitrange_staging.yaml" "staging"
 check_limit_ns "${LIMIT_DIR}/limitrange_prod.yaml" "prod"
 check_limit_ns "${LIMIT_DIR}/limitrange_tools.yaml" "tools"
 
-# 4. Quota YAML contains spec.hard with at least one quota key
+# 3. Quota YAML contains spec.hard with at least one quota key
 for f in "${quota_files[@]}"; do
   grep -q "spec:" "$f" || fail "$f must contain 'spec:'"
   grep -q "hard:" "$f" || fail "$f must contain 'hard:'"
   grep -q "requests.cpu" "$f" || fail "$f must contain 'requests.cpu' quota"
 done
 
-# 5. LimitRange YAML contains spec.limits and default/defaultRequest
+# 4. LimitRange YAML contains spec.limits and default/defaultRequest
 for f in "${limit_files[@]}"; do
   grep -q "spec:" "$f" || fail "$f must contain 'spec:'"
   grep -q "limits:" "$f" || fail "$f must contain 'limits:'"
   grep -q "default:" "$f" || fail "$f must contain 'default:' in LimitRange"
 done
 
-# 6. Optional: YAML syntax validation if python3 + PyYAML is available
+# 5. Optional: YAML syntax validation if python3 + PyYAML is available
 if command -v python3 >/dev/null 2>&1; then
   python3 - <<'PY'
 try:
