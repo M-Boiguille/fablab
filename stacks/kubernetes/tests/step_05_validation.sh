@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-QUOTA_DIR="stacks/kubernetes/infra/base/resource_quotas"
-LIMIT_DIR="stacks/kubernetes/infra/base/limit_ranges"
+QUOTA_DIR="../kubernetes/infra/base/resource_quotas"
+LIMIT_DIR="../kubernetes/infra/base/limit_ranges"
 
 quota_files=(
   "${QUOTA_DIR}/resourcequota_dev.yaml"
