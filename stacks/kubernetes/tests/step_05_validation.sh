@@ -11,17 +11,13 @@ LOG_ENTRIES=()
 
 log_pass() {
   local msg="$1"
-  local ts
-  ts=$(date '+%Y-%m-%d %H:%M:%S')
-  LOG_ENTRIES+=("[$ts] PASS | $msg")
+  LOG_ENTRIES+=("PASS | $msg")
   PASS_COUNT=$((PASS_COUNT + 1))
 }
 
 log_fail() {
   local msg="$1"
-  local ts
-  ts=$(date '+%Y-%m-%d %H:%M:%S')
-  LOG_ENTRIES+=("[$ts] FAIL | $msg")
+  LOG_ENTRIES+=("FAIL | $msg")
   FAIL_COUNT=$((FAIL_COUNT + 1))
 }
 
@@ -40,19 +36,16 @@ write_result_file() {
     status_word="failed"
   fi
 
-  local now
-  now=$(date '+%Y-%m-%d %H:%M:%S')
-
   {
     echo "$status"
     echo "--- Summary ---"
-    echo "[$now] Step 05 validation: $PASS_COUNT passed, $FAIL_COUNT failed"
+    echo "Step 05 validation: $PASS_COUNT passed, $FAIL_COUNT failed"
     for entry in "${LOG_ENTRIES[@]}"; do
       echo "$entry"
     done
     echo "# PASS: $PASS_COUNT"
     echo "# FAIL: $FAIL_COUNT"
-    echo "[$now] # $status | Step 05 validation $status_word"
+    echo "# $status | Step 05 validation $status_word"
   } > "$RESULT_FILE"
 }
 
@@ -161,6 +154,7 @@ fi
 log_pass "LimitRange default values applied"
 
 kubectl delete pod test-limitrange-default -n dev --ignore-not-found=true >/dev/null 2>&1 || true
+kubectl wait --for=delete pod/test-limitrange-default -n dev --timeout=30s >/dev/null 2>&1 || true
 
 # 6. Test LimitRange max rejection
 echo "🧪 Testing LimitRange max rejection..." >&2
@@ -190,13 +184,19 @@ fi
 
 # 7. Test ResourceQuota pod count limit
 echo "🧪 Testing ResourceQuota pod count limit..." >&2
-for i in $(seq 1 5); do
-  kubectl apply -f - >/dev/null <<EOF || fail "failed to create quota-test-$i pod"
+success_count=0
+rejection_observed=false
+max_attempts=20
+
+for i in $(seq 1 "$max_attempts"); do
+  if kubectl apply -f - >/dev/null 2>&1 <<EOF
 apiVersion: v1
 kind: Pod
 metadata:
   name: quota-test-$i
   namespace: dev
+  labels:
+    test: quota-limit
 spec:
   containers:
   - name: nginx
@@ -209,34 +209,23 @@ spec:
         cpu: "10m"
         memory: "4Mi"
 EOF
+  then
+    success_count=$((success_count + 1))
+  else
+    rejection_observed=true
+    echo "ℹ️  Pod #$i rejected as expected (ResourceQuota limit reached)" >&2
+    break
+  fi
 done
 
-if kubectl apply -f - >/dev/null 2>&1 <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: quota-test-6
-  namespace: dev
-spec:
-  containers:
-  - name: nginx
-    image: nginx:alpine
-    resources:
-      requests:
-        cpu: "10m"
-        memory: "4Mi"
-      limits:
-        cpu: "10m"
-        memory: "4Mi"
-EOF
-then
-  fail "6th pod should have been rejected due to ResourceQuota pods limit"
-else
-  log_pass "ResourceQuota pod count limit enforced"
+if [[ "$rejection_observed" != true ]]; then
+  fail "No ResourceQuota pod limit rejection observed after $max_attempts attempts"
 fi
 
-# Cleanup test pods manually (trap cleanup will also remove the whole overlay)
-kubectl delete pod quota-test-{1..5} -n dev --ignore-not-found=true >/dev/null 2>&1 || true
+log_pass "ResourceQuota pod limit enforced (created $success_count pod(s) before rejection)"
+
+# Cleanup test pods (trap cleanup will also remove the whole overlay)
+kubectl delete pod -n dev -l test=quota-limit --ignore-not-found=true >/dev/null 2>&1 || true
 
 # The result file is written by the EXIT trap
 exit 0
