@@ -1,0 +1,11 @@
+kind: ResourceQuota
+metadata:
+  name: stage-ressources
+spec:
+  hard:
+    requests.cpu: 225m
+    limits.cpu: 450m
+    requests.memory: 144Mi
+    limits.memory: 288Mi
+    pods: 5
+
