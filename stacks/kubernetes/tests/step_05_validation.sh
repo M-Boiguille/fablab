@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_OVERLAY="$SCRIPT_DIR/../infra/overlays/tests"
+LOAD_RESTRICTOR_FLAG="--load-restrictor LoadRestrictionsNone"
 
 fail() {
   echo "❌ $1" >&2
@@ -13,7 +14,7 @@ command -v kubectl >/dev/null 2>&1 || fail "kubectl is required but not installe
 
 cleanup() {
   echo "🧹 Cleaning up infrastructure..."
-  kubectl delete -k "$INFRA_OVERLAY" --ignore-not-found=true || true
+  kubectl delete -k "$INFRA_OVERLAY" --ignore-not-found=true ${LOAD_RESTRICTOR_FLAG} || true
 }
 trap cleanup EXIT
 
@@ -60,11 +61,11 @@ wait_for_pod_field() {
 
 # 1. Validate kustomize build
 echo "🔧 Validating kustomize build..."
-kubectl kustomize "$INFRA_OVERLAY" >/dev/null || fail "kustomize build failed"
+kubectl kustomize "$INFRA_OVERLAY" ${LOAD_RESTRICTOR_FLAG} >/dev/null || fail "kustomize build failed"
 
 # 2. Deploy infrastructure
 echo "🚀 Deploying infrastructure from overlay tests..."
-kubectl apply -k "$INFRA_OVERLAY"
+kubectl apply -k "$INFRA_OVERLAY" ${LOAD_RESTRICTOR_FLAG}
 
 # 3. Wait for namespaces to become Active
 for ns in dev staging prod tools; do
