@@ -12,6 +12,9 @@ spec:
     default:
       cpu: 100m
       memory: 128Mi
+    min:
+      cpu: 10m
+      memory: 4Mi
     max:
-      cpu: 250m
-      memory: 320Mi
+      cpu: 600m
+      memory: 768Mi

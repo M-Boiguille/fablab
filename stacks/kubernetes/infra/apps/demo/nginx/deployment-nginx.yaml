@@ -101,6 +101,13 @@ spec:
         args:
           - "--nginx.scrape-uri=http://127.0.0.1:80/stub_status"
           - "--web.listen-address=:8123"          
+        resources:
+          requests:
+            cpu: 10m
+            memory: 4Mi
+          limits:
+            cpu: 50m
+            memory: 8Mi
         ports:
           - name: metrics
             containerPort: 8123
