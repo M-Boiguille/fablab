@@ -1,11 +1,15 @@
+apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: stage-ressources
+  namespace: staging
 spec:
   hard:
-    requests.cpu: 225m
-    limits.cpu: 450m
-    requests.memory: 144Mi
-    limits.memory: 288Mi
-    pods: 5
+    requests.cpu: "220m"
+    requests.memory: "27Mi"
+    limits.cpu: "385m"
+    limits.memory: "55Mi"
+    pods: 6
+    services: 2
+    count/deployment.apps: 2
 
