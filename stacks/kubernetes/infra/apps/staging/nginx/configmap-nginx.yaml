@@ -2,10 +2,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-config
-  namespace: dev
+  namespace: staging
   labels:
     app: nginx
-    environment: dev
+    environment: staging
     team: platform
     managed-by: terraform
 data:
@@ -36,3 +36,5 @@ data:
                 stub_status;
             }
         }
+
+

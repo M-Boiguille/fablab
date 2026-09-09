@@ -3,15 +3,17 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nginx-service
-  namespace: dev
+  namespace: staging
   labels:
     app: nginx
-    environment: dev
+    environment: staging
     team: platform
     managed-by: terraform
 spec:
   selector:
     app: nginx
+    environment: staging
+    track: "blue"
   type: ClusterIP
   ports:
   - name: nginx-http
@@ -20,3 +22,5 @@ spec:
     targetPort: 80
   publishNotReadyAddresses: false
 ---
+
+

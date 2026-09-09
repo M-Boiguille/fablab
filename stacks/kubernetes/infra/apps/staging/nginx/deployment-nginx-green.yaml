@@ -2,21 +2,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx
-  namespace: dev
+  name: nginx-green
+  namespace: staging
   labels:
     app: nginx
-    environment: dev
+    environment: staging
     team: platform
     managed-by: terraform
-    version: "1.30.4"
-    track: "stable"
+    version: "1.31.5"
+    track: "green"
 spec:
   selector:
     matchLabels:
       app: nginx
-      environment: dev
-      track: "stable"
+      environment: staging
+      track: "green"
   replicas: 3
   strategy:
     type: RollingUpdate
@@ -31,15 +31,15 @@ spec:
         prometheus.io/port: "8123"
       labels:
         app: nginx
-        environment: dev
-        track: "stable"
+        environment: staging
+        track: "green"
     spec:
       securityContext:
         runAsNonRoot: true
         fsGroup: 101
       containers:
       - name: nginx
-        image: nginx:1.30.4@sha256:09cc2702709e6388d979d8030e3ab4eb1ceb699b2dced26d7543e872a822e823
+        image: nginx:1.31.5
         command:
             - /bin/sh
             - -c
@@ -49,11 +49,11 @@ spec:
         imagePullPolicy: IfNotPresent
         resources:
           requests:
-            cpu: 15m
-            memory: 5Mi
-          limits:
             cpu: 50m
-            memory: 10Mi
+            memory: 6Mi
+          limits:
+            cpu: 150m
+            memory: 16Mi
         ports:
         - containerPort: 80
           name: nginx
@@ -104,8 +104,8 @@ spec:
           - "--web.listen-address=:8123"          
         resources:
           requests:
-            cpu: 10m
-            memory: 4Mi
+            cpu: 12m
+            memory: 5Mi
           limits:
             cpu: 50m
             memory: 8Mi
@@ -124,3 +124,4 @@ spec:
           emptyDir: {}
       restartPolicy: Always
 ---
+
