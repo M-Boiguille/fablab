@@ -1,11 +1,11 @@
-current_step: 5
+current_step: 6
 total_steps: 16
 stack: kubernetes
 status: in_progress
-context_capsule: Implémentation de readiness/liveness probes HTTP pour Nginx (/hello,
-  /health) pour gérer les pods bloqués/inaptes, avec Prometheus/Grafana pour l'observabilité.
-  Réglages conservateurs pour la stabilité, évitant les redémarrages intempestifs.
-  Validation réussie.
+context_capsule: 'ResourceQuotas et LimitRanges par namespace implémentés via Kustomize
+  pour protéger le cluster. Valeurs initiales conservatrices, ajustement itératif
+  prévu. Trade-off: granularité vs maintenance, valeurs conservatrices vs flexibilité
+  assumés pour la stabilité.'
 key_decisions:
 - 4 namespaces par environnement (dev, staging, prod, tools) avec labels standardisés
   (environment, team, managed-by)
@@ -30,6 +30,10 @@ key_decisions:
   5`, `periodSeconds: 10`, `failureThreshold: 3`).'
 - Déploiement de Prometheus et Grafana dans le namespace `tools` pour la collecte
   et la visualisation des métriques.
+- Implémentation de ResourceQuotas et LimitRanges différenciés par namespace (dev,
+  staging, prod, tools).
+- Intégration des configurations via Kustomize dans `stacks/kubernetes/infra/base/`.
+- Définition de valeurs initiales conservatrices pour les quotas et limites.
 pending_risks:
 - Prolifération de namespaces non gouvernés à l'avenir
 - Namespace mal configuré peut exposer des ressources sensibles
@@ -40,4 +44,8 @@ pending_risks:
 - Registre privé et signature Cosign reportés en production
 - PodDisruptionBudget non implémenté, nécessaire en production
 - Le dashboard Grafana n'est pas encore provisionné automatiquement.
-last_updated: '2026-09-05T21:20:20.790822Z'
+- Des déploiements applicatifs futurs pourraient échouer ou rencontrer des problèmes
+  de performance inattendus si les `requests` et `limits` définis par les équipes
+  applicatives ne sont pas en adéquation avec les `ResourceQuotas` et `LimitRanges`
+  mis en place.
+last_updated: '2026-09-09T00:14:06.804552Z'
