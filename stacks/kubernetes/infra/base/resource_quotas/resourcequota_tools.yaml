@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: tools-ressources
+  namespace: tools
+spec:
+  hard:
+    requests.cpu: "600m"
+    requests.memory: "768Mi"
+    limits.cpu: "1"
+    limits.memory: "1Gi"
+    pods: 4

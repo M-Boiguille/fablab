@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-ressources
+  namespace: dev
+spec:
+  hard:
+    requests.cpu: "300m"
+    requests.memory: "40Mi"
+    limits.cpu: "700m"
+    limits.memory: "96Mi"
+    pods: 5
+    services: 1
+    count/deployment.apps: 1

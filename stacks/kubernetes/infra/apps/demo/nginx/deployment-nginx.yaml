@@ -49,10 +49,10 @@ spec:
         resources:
           requests:
             cpu: 50m
-            memory: 64Mi
+            memory: 6Mi
           limits:
-            cpu: 250m
-            memory: 200Mi
+            cpu: 150m
+            memory: 16Mi
         ports:
         - containerPort: 80
           name: nginx
@@ -101,6 +101,13 @@ spec:
         args:
           - "--nginx.scrape-uri=http://127.0.0.1:80/stub_status"
           - "--web.listen-address=:8123"          
+        resources:
+          requests:
+            cpu: 10m
+            memory: 4Mi
+          limits:
+            cpu: 50m
+            memory: 8Mi
         ports:
           - name: metrics
             containerPort: 8123
@@ -116,4 +123,3 @@ spec:
           emptyDir: {}
       restartPolicy: Always
 ---
-
