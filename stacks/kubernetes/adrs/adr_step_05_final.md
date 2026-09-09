@@ -46,10 +46,10 @@ Les valeurs retenues pour les `ResourceQuota` sont les suivantes :
 
 | Namespace | `requests.cpu` | `requests.memory` | `limits.cpu` | `limits.memory` | `pods` | `services` | `count/deployment.apps` |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `dev` | `200m` | `24Mi` | `350m` | `50Mi` | `5` | `1` | `1` |
+| `dev` | `300m` | `40Mi` | `700m` | `96Mi` | `5` | `1` | `1` |
 | `staging` | `1080m` | `114Mi` | `1080m` | `114Mi` | `6` | `2` | `2` |
 | `prod` | `1512m` | `161Mi` | `1512m` | `161Mi` | `7` | `2` | `2` |
-| `tools` | `150m` | `96Mi` | `300m` | `192Mi` | `4` | — | — |
+| `tools` | `600m` | `768Mi` | `1` | `1Gi` | `4` | — | — |
 
 Le namespace `tools` ne comporte pas de limite sur le nombre de services ni sur le nombre de déploiements, car il est destiné à héberger des outils d’observabilité et de gestion.
 
@@ -60,9 +60,9 @@ Le namespace `tools` ne comporte pas de limite sur le nombre de services ni sur 
 | `dev` | `50m` | `100m` | `10m` | `150m` | `6Mi` | `12Mi` | `4Mi` | `16Mi` |
 | `staging` | `60m` | `120m` | `12m` | `180m` | `7Mi` | `14Mi` | `5Mi` | `19Mi` |
 | `prod` | `72m` | `144m` | `14m` | `216m` | `8Mi` | `17Mi` | `6Mi` | `23Mi` |
-| `tools` | `50m` | `100m` | — | `250m` | `64Mi` | `128Mi` | — | `320Mi` |
+| `tools` | `50m` | `100m` | `10m` | `600m` | `64Mi` | `128Mi` | `4Mi` | `768Mi` |
 
-Le namespace `tools` ne définit pas de valeurs minimales (`min`) pour le CPU et la mémoire. Cela signifie que les conteneurs devront déclarer leurs propres `requests` et `limits`, ou bien recevront uniquement les valeurs par défaut, sans contrainte minimale explicite.
+Le namespace `tools` définit des valeurs minimales et maximales adaptées aux outils variés (min `10m`/`4Mi`, max `600m`/`768Mi`).
 
 ### 4. Mise en œuvre dans le repository
 
