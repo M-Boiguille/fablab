@@ -11,4 +11,4 @@ spec:
     limits.memory: "192Mi"
     pods: 7
     services: 1
-    count/deployment.apps: 1
+    count/deployment.apps: 2

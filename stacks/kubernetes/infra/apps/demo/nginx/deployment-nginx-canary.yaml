@@ -39,14 +39,14 @@ spec:
         fsGroup: 101
       containers:
       - name: nginx
-        image: nginx:1.31.5
+        image: nginx@sha256:05b8cb60c354a44ab824ea6e7dc69b46d50762cdbe728a347a5b656e6fb3d7c4
         command:
             - /bin/sh
             - -c
             - |
               touch /usr/share/nginx/html/index.html;
               exec nginx -g 'daemon off;'
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         resources:
           requests:
             cpu: 15m
@@ -98,7 +98,7 @@ spec:
         - name: nginx-run
           mountPath: /var/run
       - name: nginx-prometheus-exporter
-        image: nginx/nginx-prometheus-exporter:1.5.3
+        image: nginx/nginx-prometheus-exporter@sha256:85666e7fde7e253f1c6d978f9a961245df4c9cdb7677e1866d9bb28e8f9ee41d
         args:
           - "--nginx.scrape-uri=http://127.0.0.1:80/stub_status"
           - "--web.listen-address=:8123"          
@@ -124,4 +124,3 @@ spec:
           emptyDir: {}
       restartPolicy: Always
 ---
-

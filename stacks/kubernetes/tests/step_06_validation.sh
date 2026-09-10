@@ -9,6 +9,23 @@ PASS_COUNT=0
 FAIL_COUNT=0
 LOG_ENTRIES=()
 
+# ----------------------------------------------------------------------
+# Log suppression dynamique
+# ----------------------------------------------------------------------
+LOG_ENABLED=false
+if [[ "${1:-}" == "-log" ]]; then
+  LOG_ENABLED=true
+  shift
+fi
+
+quiet() {
+  if [[ "$LOG_ENABLED" == "true" ]]; then
+    "$@"
+  else
+    "$@" >/dev/null 2>&1
+  fi
+}
+
 log_pass() {
   local msg="$1"
   LOG_ENTRIES+=("PASS | $msg")
@@ -26,7 +43,7 @@ log_fail() {
 write_result_file() {
   local status="PASS"
   local status_word="successful"
-  if (( FAIL_COUNT > 0 )); then
+  if ((FAIL_COUNT > 0)); then
     status="FAIL"
     status_word="failed"
   fi
@@ -41,13 +58,14 @@ write_result_file() {
     echo "# PASS: $PASS_COUNT"
     echo "# FAIL: $FAIL_COUNT"
     echo "# $status | Step 06 validation $status_word"
-  } > "$RESULT_FILE"
+  } >"$RESULT_FILE"
 }
 
 cleanup() {
   echo "🧹 Cleaning up test pods..." >&2
-  kubectl delete pod -n staging -l app=switch-test --ignore-not-found --wait=false >/dev/null 2>&1 || true
-  kubectl delete pod -n dev -l app=canary-test --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  quiet kubectl delete pod -n staging -l app=switch-test --ignore-not-found --wait=false || true
+  quiet kubectl delete pod -n tools -l app=switch-test --ignore-not-found --wait=false || true
+  quiet kubectl delete pod -n dev -l app=canary-test --ignore-not-found --wait=false || true
 }
 
 exit_handler() {
@@ -56,7 +74,7 @@ exit_handler() {
 }
 trap exit_handler EXIT
 
-command -v kubectl >/dev/null 2>&1 || {
+command -v kubectl || {
   log_fail "kubectl is required but not installed"
   exit 1
 }
@@ -66,6 +84,7 @@ command -v kubectl >/dev/null 2>&1 || {
 # ----------------------------------------------------------------------
 
 NAMESPACE_STAGING="staging"
+NAMESPACE_TESTS="tools"
 SERVICE_STAGING="nginx-service"
 BLUE_VERSION="1.30.4"
 GREEN_VERSION="1.31.5"
@@ -75,19 +94,30 @@ TEST_LABEL_STAGING="app=switch-test"
 
 run_curl_version_staging() {
   local name="$1"
+  local ns="$NAMESPACE_TESTS"
+
+  # Nettoyage préventif silencieux
+  quiet kubectl delete pod "$name" -n "$ns" --ignore-not-found --wait=false || true
+
   local output
-  output=$(kubectl run "$name" -n "$NAMESPACE_STAGING" \
+  output=$(kubectl run "$name" -n "$ns" \
     --image=curlimages/curl \
     --restart=Never \
     --labels="$TEST_LABEL_STAGING" \
-    --attach \
-    --command -- /bin/sh -c 'curl -sS --connect-timeout 0.2 --max-time 1 http://nginx-service:8080/version' 2>/dev/null || true)
-  echo "$output" | tail -n1 | tr -d '\n'
+    --rm \
+    --attach --quiet \
+    --command -- /bin/sh -c '
+      curl -sS --connect-timeout 1 --max-time 1 http://nginx-service.staging.svc.cluster.local:8080/version
+      echo
+      sleep 1
+    ' 2>/dev/null || true)
+
+  echo "$output" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | tail -n1 | tr -d '\r\n' || true
 }
 
 echo "--- Blue/Green deployment validation (staging) ---"
 
-current_track=$(kubectl get service -n "$NAMESPACE_STAGING" "$SERVICE_STAGING" -o jsonpath='{.spec.selector.track}' 2>/dev/null || true)
+current_track=$(kubectl get service -n "$NAMESPACE_STAGING" "$SERVICE_STAGING" -o jsonpath='{.spec.selector.track}' || true)
 
 if [[ "$current_track" == "$TRACK_BLUE" ]]; then
   current_version="$BLUE_VERSION"
@@ -114,28 +144,56 @@ if [[ -n "$target_track" ]]; then
     log_fail "Service version before switch is '$before_version' (expected '$current_version')"
   fi
 
-  if kubectl patch -n "$NAMESPACE_STAGING" service "$SERVICE_STAGING" \
+  # Après le patch
+  if quiet kubectl patch -n "$NAMESPACE_STAGING" service "$SERVICE_STAGING" \
     --type='merge' \
-    -p "{\"spec\":{\"selector\":{\"track\":\"$target_track\"}}}" >/dev/null 2>&1; then
+    -p "{\"spec\":{\"selector\":{\"track\":\"$target_track\"}}}"; then
     log_pass "Service selector patched to $target_track"
   else
     log_fail "Failed to patch service selector to $target_track"
   fi
 
+  # Vérifier que le selector est bien à jour (rapide)
   actual_track=""
-  for _ in $(seq 1 30); do
-    actual_track=$(kubectl get service -n "$NAMESPACE_STAGING" "$SERVICE_STAGING" -o jsonpath='{.spec.selector.track}' 2>/dev/null || true)
+  for _ in $(seq 1 10); do
+    actual_track=$(kubectl get service -n "$NAMESPACE_STAGING" "$SERVICE_STAGING" \
+      -o jsonpath='{.spec.selector.track}' 2>/dev/null || true)
     [[ "$actual_track" == "$target_track" ]] && break
+    sleep 0.5
+  done
+
+  # ⚠️ NOUVEAU : attendre que les endpoints pointent vers les pods du target track
+  endpoints_ready=false
+  for _ in $(seq 1 30); do
+    # Récupère les noms des pods dans les endpoints
+    endpoint_pods=$(kubectl get endpoints -n "$NAMESPACE_STAGING" "$SERVICE_STAGING" \
+      -o jsonpath='{.subsets[*].addresses[*].targetRef.name}' 2>/dev/null || true)
+
+    if [[ -n "$endpoint_pods" ]]; then
+      # Vérifie qu'au moins un pod endpoint a le label target_track
+      all_match=true
+      for pod in $endpoint_pods; do
+        pod_track=$(kubectl get pod -n "$NAMESPACE_STAGING" "$pod" \
+          -o jsonpath='{.metadata.labels.track}' 2>/dev/null || true)
+        [[ "$pod_track" != "$target_track" ]] && all_match=false && break
+      done
+      if [[ "$all_match" == "true" ]]; then
+        endpoints_ready=true
+        break
+      fi
+    fi
     sleep 1
   done
 
-  if [[ "$actual_track" == "$target_track" ]]; then
-    log_pass "Service selector is now $target_track"
+  if [[ "$endpoints_ready" == "true" ]]; then
+    log_pass "Endpoints updated to $target_track pods"
   else
-    log_fail "Service selector did not update to $target_track (got '$actual_track')"
+    log_fail "Endpoints did not update to $target_track within 30s"
   fi
 
+  # Maintenant seulement, tester la version
   after_version=$(run_curl_version_staging switch-test-after)
+  echo="$after_version"
   if [[ "$after_version" == "$target_version" ]]; then
     log_pass "Service returns target version $after_version after switch"
   else
@@ -161,7 +219,7 @@ scale_deployment() {
   local deployment="$1"
   local replicas="$2"
 
-  if kubectl scale deployment -n "$NAMESPACE_DEV" "$deployment" --replicas "$replicas" >/dev/null 2>&1; then
+  if quiet kubectl scale deployment -n "$NAMESPACE_DEV" "$deployment" --replicas "$replicas"; then
     log_pass "Scaled $deployment to $replicas replicas"
   else
     log_fail "Failed to scale $deployment to $replicas replicas"
@@ -176,8 +234,8 @@ scale_deployment() {
   local ready_loop=""
 
   while [[ $elapsed -lt $timeout ]]; do
-    current_replicas=$(kubectl get deployment -n "$NAMESPACE_DEV" "$deployment" -o jsonpath='{.status.replicas}' 2>/dev/null || true)
-    ready_loop=$(kubectl get deployment -n "$NAMESPACE_DEV" "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+    current_replicas=$(kubectl get deployment -n "$NAMESPACE_DEV" "$deployment" -o jsonpath='{.status.replicas}' || true)
+    ready_loop=$(kubectl get deployment -n "$NAMESPACE_DEV" "$deployment" -o jsonpath='{.status.readyReplicas}' || true)
 
     if [[ "$replicas" -eq 0 ]]; then
       # For zero replicas, check status.replicas only. readyReplicas may be
