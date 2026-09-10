@@ -172,18 +172,46 @@ scale_deployment() {
   local interval=2
   local elapsed=0
   local ready=""
+  local current_replicas=""
+  local ready_loop=""
+
   while [[ $elapsed -lt $timeout ]]; do
-    ready=$(kubectl get deployment -n "$NAMESPACE_DEV" "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
-    [[ "$ready" == "$replicas" ]] && break
+    current_replicas=$(kubectl get deployment -n "$NAMESPACE_DEV" "$deployment" -o jsonpath='{.status.replicas}' 2>/dev/null || true)
+    ready_loop=$(kubectl get deployment -n "$NAMESPACE_DEV" "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+
+    if [[ "$replicas" -eq 0 ]]; then
+      # For zero replicas, check status.replicas only. readyReplicas may be
+      # empty or non-zero while pods are terminating, so it is not reliable here.
+      if [[ -z "$current_replicas" || "$current_replicas" == "0" ]]; then
+        ready="0"
+        break
+      fi
+    else
+      # For >0 replicas, require readyReplicas to match the desired count.
+      if [[ "$ready_loop" == "$replicas" ]]; then
+        ready="$ready_loop"
+        break
+      fi
+    fi
+
     sleep "$interval"
     elapsed=$((elapsed + interval))
   done
 
-  if [[ "$ready" == "$replicas" ]]; then
-    log_pass "$deployment has $replicas ready replicas"
+  if [[ "$replicas" -eq 0 ]]; then
+    if [[ "$ready" == "0" ]]; then
+      log_pass "$deployment scaled to 0 replicas"
+    else
+      log_fail "$deployment did not scale to 0 replicas (status.replicas='$current_replicas')"
+      return 1
+    fi
   else
-    log_fail "$deployment does not have $replicas ready replicas (got '$ready')"
-    return 1
+    if [[ "$ready" == "$replicas" ]]; then
+      log_pass "$deployment has $replicas ready replicas"
+    else
+      log_fail "$deployment does not have $replicas ready replicas (got '$ready')"
+      return 1
+    fi
   fi
 }
 
@@ -193,6 +221,7 @@ run_canary_test() {
     --image=curlimages/curl \
     --restart=Never \
     --labels="$POD_LABEL" \
+    --rm \
     --attach \
     --command -- /bin/sh -c '
         i=0
