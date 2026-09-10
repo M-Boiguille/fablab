@@ -1,11 +1,11 @@
-current_step: 6
+current_step: 7
 total_steps: 16
 stack: kubernetes
 status: in_progress
-context_capsule: 'ResourceQuotas et LimitRanges par namespace implémentés via Kustomize
-  pour protéger le cluster. Valeurs initiales conservatrices, ajustement itératif
-  prévu. Trade-off: granularité vs maintenance, valeurs conservatrices vs flexibilité
-  assumés pour la stabilité.'
+context_capsule: 'Implémentation Blue/Green (staging, rollback instantané via Service
+  selector) et Canary (dev, observation progressive via réplicas). Nécessité d''ajuster
+  les quotas. Trade-offs: B/G double les ressources, Canary est approximatif. Validation
+  réussie, mais opérations manuelles.'
 key_decisions:
 - 4 namespaces par environnement (dev, staging, prod, tools) avec labels standardisés
   (environment, team, managed-by)
@@ -34,6 +34,10 @@ key_decisions:
   staging, prod, tools).
 - Intégration des configurations via Kustomize dans `stacks/kubernetes/infra/base/`.
 - Définition de valeurs initiales conservatrices pour les quotas et limites.
+- Blue/Green adopté pour staging (rollback instantané via Service selector).
+- Canary adopté pour dev (observation progressive via nombre de réplicas).
+- Versions distinguées par endpoint /version et labels track.
+- ResourceQuota et LimitRange ajustés pour la coexistence des versions.
 pending_risks:
 - Prolifération de namespaces non gouvernés à l'avenir
 - Namespace mal configuré peut exposer des ressources sensibles
@@ -48,4 +52,7 @@ pending_risks:
   de performance inattendus si les `requests` et `limits` définis par les équipes
   applicatives ne sont pas en adéquation avec les `ResourceQuotas` et `LimitRanges`
   mis en place.
-last_updated: '2026-09-09T00:14:06.804552Z'
+- Dérive de configuration entre les Deployment Blue et Green.
+- Absence d'automatisation pour l'analyse des métriques Canary et le rollback.
+- Absence de PodDisruptionBudget.
+last_updated: '2026-09-10T19:32:10.537568Z'
