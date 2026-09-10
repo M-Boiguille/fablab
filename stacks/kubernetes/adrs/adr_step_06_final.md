@@ -17,9 +17,9 @@ L'objectif de cette étape est de mettre en place deux stratégies complémentai
 - **Blue/Green** : deux environnements identiques (Blue = version actuelle, Green = nouvelle version), bascule du trafic via le `Service`, rollback immédiat.
 - **Canary** : déploiement progressif (paliers de réplicas), observation des métriques à chaque palier, décision de continuer ou d'annuler.
 
-Ces stratégies doivent respecter les `ResourceQuota` et `LimitRange` définis à l'étape 5 (ADR-0005) pour les namespaces `dev` et `staging`.
+Ces stratégies doivent respecter les `ResourceQuota` et `LimitRange` définis à l'étape 5 (ADR-0005) pour les namespaces `dev` et `staging` (pour tester le deploiement des deux versions, j'ai du augmenter modifier quelques limits/resources). 
 
-Le brief indique les chemins `stacks/kubernetes/apps/` et `infra/adrs/`. Dans ce dépôt, les étapes précédentes utilisent `stacks/kubernetes/infra/apps/` et `stacks/kubernetes/adrs/`. Les fichiers sont donc créés dans la structure existante, sans déplacement.
+Les fichiers sont donc créés dans la structure existante, sans déplacement.
 
 ## Décision
 
@@ -55,7 +55,7 @@ kubectl patch -n staging service nginx-service \
   -p '{"spec":{"selector":{"track":"blue"}}}'
 ```
 
-Le script `switch-deployment-track.sh` automatise cette bascule : il lit le `track` courant, calcule le `track` cible (`blue` ↔ `green`), lance un pod `curl` continu, applique le patch, puis affiche les logs pour vérifier la continuité de service.
+Le script de test automatise cette bascule : il lit le `track` courant, calcule le `track` cible (`blue` ↔ `green`), lance un pod `curl` continu, applique le patch, puis affiche les logs pour vérifier la continuité de service.
 
 ### 3. Canary en dev
 
@@ -78,7 +78,7 @@ kubectl scale deployment -n dev -l track=canary --replicas 3
 kubectl scale deployment -n dev -l track=canary --replicas 0
 ```
 
-Le script `switch-deployment-canary.sh` automatise cette progression : il enchaîne les paliers `3/0 → 3/1 → 3/2 → 3/3 → 3/0` (stable/canary), envoie `NB_REQ=1000` requêtes à chaque palier via un pod `curl`, et affiche les pourcentages observés pour chaque version.
+Le script de test automatise cette progression : il enchaîne les paliers `3/0 → 3/1 → 3/2 → 3/3 → 3/0` (stable/canary), envoie `NB_REQ=1000` requêtes à chaque palier via un pod `curl`, et affiche les pourcentages observés pour chaque version.
 
 ### 4. Distinguabilité des versions
 
@@ -91,7 +91,7 @@ Cela permet de mesurer objectivement la répartition du trafic dans les scripts 
 
 ### 5. Respect des quotas (ADR-0005)
 
-Les `ResourceQuota` du namespace `staging` limitent `count/deployment.apps` à `2`, ce qui correspond exactement aux deux `Deployment` `nginx-blue` et `nginx-green`. Les `requests`/`limits` de chaque conteneur restent dans les bornes du `LimitRange` staging (`cpu max 180m`, `memory max 19Mi`).
+Les `ResourceQuota` du namespace `staging` limitent `count/deployment.apps` à `2`, ce qui correspond exactement aux deux `Deployment` `nginx-blue` et `nginx-green`. Les `requests`/`limits` ont du être ajustées.
 
 ## Alternatives considérées
 
@@ -108,8 +108,6 @@ Les `ResourceQuota` du namespace `staging` limitent `count/deployment.apps` à `
 - **Blue/Green — coût en ressources vs rollback instantané** : maintenir deux `Deployment` complets double la consommation de pods pendant la bascule. En staging, le quota `pods: 6` couvre exactement `3 (blue) + 3 (green)`. Le rollback est une simple modification de selector, donc quasi instantané (aucun redéploiement).
 
 - **Canary — granularité vs précision** : le ratio de trafic est approximé par le nombre de réplicas (`3/1` ≈ 25 %, `3/2` ≈ 40 %, `3/3` = 50 %). Ce n'est pas un pourcentage exact, mais c'est suffisant pour observer une nouvelle version. Un routage pondéré précis nécessiterait un Ingress ou un Service Mesh (alternatives D et E rejetées).
-
-- **Compatibilité avec les ADR précédentes** : les deux stratégies réutilisent les `Deployment` et `Service` de l'étape 3 (ADR-0003) et respectent les quotas de l'étape 5 (ADR-0005). Aucune modification du RBAC (ADR-0002) n'est nécessaire.
 
 ## Risques identifiés et mitigations
 
@@ -138,4 +136,3 @@ Les `ResourceQuota` du namespace `staging` limitent `count/deployment.apps` à `
 - ADR-0004 : Probes et observabilité applicative
 - ADR-0005 : ResourceQuotas et LimitRanges par namespace
 - Manifests : `stacks/kubernetes/infra/apps/staging/nginx/`, `stacks/kubernetes/infra/apps/demo/nginx/`
-- Scripts : `switch-deployment-track.sh`, `switch-deployment-canary.sh`

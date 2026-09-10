@@ -1,0 +1,46 @@
+PASS
+--- Summary ---
+Step 06 validation: 40 passed, 0 failed
+PASS | Current track is blue; target is green
+PASS | Service returns current version 1.30.4 before switch
+PASS | Service selector patched to green
+PASS | Service selector is now green
+PASS | Service returns target version 1.31.5 after switch
+PASS | Scaled nginx to 3 replicas
+PASS | nginx has 3 ready replicas
+PASS | Scaled nginx-canary to 0 replicas
+PASS | nginx-canary scaled to 0 replicas
+PASS | Canary test completed without errors
+PASS | No canary traffic observed when canary replicas=0
+PASS | Stable traffic observed: 1000 requests
+PASS | Scaled nginx to 3 replicas
+PASS | nginx has 3 ready replicas
+PASS | Scaled nginx-canary to 1 replicas
+PASS | nginx-canary has 1 ready replicas
+PASS | Canary test completed without errors
+PASS | Canary traffic observed: 252 requests
+PASS | Stable traffic observed: 748 requests
+PASS | Scaled nginx to 3 replicas
+PASS | nginx has 3 ready replicas
+PASS | Scaled nginx-canary to 2 replicas
+PASS | nginx-canary has 2 ready replicas
+PASS | Canary test completed without errors
+PASS | Canary traffic observed: 392 requests
+PASS | Stable traffic observed: 608 requests
+PASS | Scaled nginx to 3 replicas
+PASS | nginx has 3 ready replicas
+PASS | Scaled nginx-canary to 3 replicas
+PASS | nginx-canary has 3 ready replicas
+PASS | Canary test completed without errors
+PASS | Canary traffic observed: 554 requests
+PASS | Stable traffic observed: 446 requests
+PASS | Scaled nginx to 3 replicas
+PASS | nginx has 3 ready replicas
+PASS | Scaled nginx-canary to 0 replicas
+PASS | nginx-canary scaled to 0 replicas
+PASS | Canary test completed without errors
+PASS | No canary traffic observed when canary replicas=0
+PASS | Stable traffic observed: 1000 requests
+# PASS: 40
+# FAIL: 0
+# PASS | Step 06 validation successful
