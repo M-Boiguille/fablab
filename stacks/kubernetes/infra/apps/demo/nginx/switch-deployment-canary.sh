@@ -77,9 +77,27 @@ scale_deployment() {
   local interval=2
   local elapsed=0
   local ready=""
+  local current_replicas=""
+  local ready_loop=""
+
   while [[ $elapsed -lt $timeout ]]; do
-    ready=$(kubectl get deployment -n "$NAMESPACE" "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
-    [[ "$ready" == "$replicas" ]] && break
+    current_replicas=$(kubectl get deployment -n "$NAMESPACE" "$deployment" -o jsonpath='{.status.replicas}' 2>/dev/null || true)
+    ready_loop=$(kubectl get deployment -n "$NAMESPACE" "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+
+    if [[ "$replicas" -eq 0 ]]; then
+      # For zero replicas, success when status.replicas and readyReplicas are both 0 or empty.
+      if { [[ -z "$current_replicas" || "$current_replicas" == "0" ]]; } && \
+         { [[ -z "$ready_loop" || "$ready_loop" == "0" ]]; }; then
+        ready="0"
+        break
+      fi
+    else
+      if [[ "$ready_loop" == "$replicas" ]]; then
+        ready="$ready_loop"
+        break
+      fi
+    fi
+
     sleep "$interval"
     elapsed=$((elapsed + interval))
   done
@@ -98,6 +116,7 @@ run_canary_test() {
     --image=curlimages/curl \
     --restart=Never \
     --labels="$POD_LABEL" \
+    --rm \
     --attach \
     --command -- /bin/sh -c '
         i=0
