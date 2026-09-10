@@ -1,52 +1,178 @@
-name: "Kubernetes - Parcours Entreprise"
+name: "Kubernetes - Parcours CKA (projet Fablab)"
 stack: "kubernetes"
-total_steps: 16
+total_steps: 20
 steps:
+  # =================================================================
+  # BLOC 1 — Étapes 1-6 : déjà réalisées (conservées telles quelles)
+  # =================================================================
   - step: 1
     title: "Namespaces et isolation des environnements"
-    description: "Découper dev, staging, prod et tools via des namespaces. Comprendre l'isolation logique et le naming en entreprise."
+    description: "Découper dev, staging, prod et tools via des namespaces."
   - step: 2
     title: "RBAC et moindre privilège"
-    description: "Modéliser les accès des développeurs, QA, SREs et services via des Roles, ClusterRoles et Bindings."
+    description: "Roles, ClusterRoles et Bindings pour Dev, QA, SRE, CI/CD."
   - step: 3
     title: "Déploiements basiques avec RollingUpdate"
-    description: "Packager une application en Deployment et Service. Appliquer une stratégie RollingUpdate sans coupure."
+    description: "Deployment + Service + RollingUpdate + ConfigMap."
   - step: 4
     title: "Probes et observabilité applicative"
-    description: "Configurer livenessProbe et readinessProbe. Introduire Prometheus, Grafana et les premières alertes."
+    description: "livenessProbe, readinessProbe, Prometheus, Grafana."
   - step: 5
     title: "ResourceQuotas et LimitRanges"
-    description: "Protéger le cluster des consommations excessives avec des quotas par namespace et des limites par conteneur."
+    description: "Quotas par namespace et limites par conteneur."
   - step: 6
     title: "Stratégies avancées : Blue/Green et Canary"
-    description: "Mettre en place des déploiements Blue/Green et Canary pour gérer des versions critiques."
+    description: "Blue/Green en staging, Canary en dev."
+
+  # =================================================================
+  # BLOC 2 — Workloads avancés et état (steps 7-11)
+  # =================================================================
   - step: 7
-    title: "GitOps avec ArgoCD et structure de repo"
-    description: "Organiser le dépôt par environnements et connecter ArgoCD pour synchroniser l'état désiré."
+    title: "Scheduling avancé"
+    description: >
+      Taints/Tolerations, NodeSelector, NodeAffinity, DaemonSet, Static Pods,
+      PriorityClass. Construire un DaemonSet de collecte de logs sur tous les
+      nœuds, un static pod nginx, une PriorityClass pour l'app. Introduire les
+      notions d'affinity pour placer les pods sur des nœuds dédiés.
+    spaced_repetition: "Revoir labels/selectors (step 3) et quotas CPU (step 5)"
+    break_it: "Déplacer un pod en échec via taint sur le nœud"
+
   - step: 8
-    title: "Helm et Kustomize"
-    description: "Gérer les écarts de configuration entre dev, staging et prod via Helm et Kustomize."
+    title: "ConfigMaps, Secrets et patterns multi-conteneurs"
+    description: >
+      ConfigMap immutable, Secret Opaque/TLS/docker-registry, ServiceAccount
+      token, init containers, sidecar, ambassador, adapter. Externaliser
+      totalement la config nginx, ajouter un secret TLS auto-signé et un
+      sidecar de rotation de logs.
+    spaced_repetition: "Revoir ConfigMap Nginx (step 3) et probes (step 4)"
+    break_it: "Supprimer un ConfigMap référencé → diagnostic Pod"
+
   - step: 9
-    title: "Sécurité réseau avec NetworkPolicy"
-    description: "Segmenter le trafic inter-pod et restreindre l'accès à la base de données et aux services sensibles."
+    title: "Volumes et stockage persistant"
+    description: >
+      emptyDir, hostPath, PV, PVC, accessModes, reclaimPolicy, StorageClass,
+      introduction CSI. Créer un PVC via la StorageClass local-path (k3s) et
+      un writer persistant pour les logs nginx. Comparer les comportements
+      RWO / ROX / RWX.
+    spaced_repetition: "Revoir sidecar logs (step 8)"
+    break_it: "Forcer un pod Pending par un PVC non satisfait"
+
   - step: 10
-    title: "Pod Security et policies d'admission"
-    description: "Appliquer Pod Security Admission, Kyverno ou OPA/Gatekeeper pour imposer des règles de sécurité."
+    title: "StatefulSets, Jobs, CronJobs et autoscaling"
+    description: >
+      StatefulSet + headless Service, Jobs, CronJobs (TTL, concurrency),
+      HorizontalPodAutoscaler, introduction VPA, metrics-server. Déployer un
+      StatefulSet « base de données simulée », un CronJob de snapshot, un HPA
+      sur le deployment nginx.
+    spaced_repetition: "Revoir quotas (step 5) et PVC (step 9)"
+    break_it: "CronJob qui ne se déclenche pas / HPA qui ne scale pas"
+
+  # =================================================================
+  # BLOC 3 — Réseau (steps 11-14)
+  # =================================================================
   - step: 11
-    title: "Gestion des secrets"
-    description: "Utiliser Kubernetes Secrets, Sealed Secrets ou External Secrets Operator pour ne pas exposer de credentials."
+    title: "Services en profondeur et DNS"
+    description: >
+      ClusterIP, NodePort, LoadBalancer, Headless, ExternalName, Endpoints,
+      EndpointSlices, CoreDNS, résolution interne, ndots. Exposer les services
+      fablab de toutes les manières et valider le DNS inter-pods. Introduction
+      kube-proxy (iptables vs IPVS).
+    spaced_repetition: "Revoir StatefulSet headless (step 10)"
+    break_it: "Service sans endpoints / DNS cassé"
+
   - step: 12
-    title: "Supply chain et sécurité des images"
-    description: "Configurer un registre privé, scanner les images avec Trivy et signer avec Cosign."
+    title: "CNI et fondamentaux réseau"
+    description: >
+      Pod Networking, CNI, ipam, kube-proxy en détail, comparaison
+      flannel/calico/cilium. Migrer le cluster k3s d'un CNI flannel à un CNI
+      qui supporte NetworkPolicy (calico) pour préparer l'étape suivante.
+    spaced_repetition: "Revoir Services (step 11)"
+    break_it: "Casser la connectivité inter-pods et diagnostiquer"
+
   - step: 13
-    title: "Sauvegarde et reprise après sinistre"
-    description: "Sauvegarder les ressources et volumes avec Velero et tester la restauration."
+    title: "NetworkPolicy"
+    description: >
+      Default-deny, allow-list par labels/namespaces/ports, ingress/egress,
+      selectors. Isoler l'app fablab : deny par défaut, autoriser Prometheus,
+      autoriser la « DB » simulée, bloquer tout le reste.
+    spaced_repetition: "Revoir RBAC (step 2) — même logique de sélection par labels"
+    break_it: "Policy trop restrictive qui coupe Prometheus → diagnostic"
+
   - step: 14
-    title: "Audit, traçabilité et conformité"
-    description: "Activer les audit logs, connecter un SIEM, gérer OIDC/SSO et respecter les contraintes de résidence."
+    title: "Ingress et Gateway API (intro)"
+    description: >
+      Ingress, IngressClass, TLS, path-based routing, annotations. Introduction
+      Gateway API (survol : 2-3 leçons). Exposer nginx avec un Ingress TLS
+      auto-signé, routage /health et /hello, rewrite-target.
+    spaced_repetition: "Revoir Services (step 11) et Secrets TLS (step 8)"
+    break_it: "Ingress sans contrôleur / mauvais IngressClass"
+
+  # =================================================================
+  # BLOC 4 — Industrialisation et cluster (steps 15-17)
+  # =================================================================
   - step: 15
-    title: "Tests de charge et chaos engineering"
-    description: "Valider la charge avec k6/Locust et introduire le chaos engineering avec Chaos Mesh."
+    title: "Kustomize et consolidation mi-parcours"
+    description: >
+      Bases + overlays, patches, transformers, components. Refactoriser
+      stacks/kubernetes/infra pour éliminer la duplication dev/staging/prod
+      signalée dans ADR-0006. Terminer par un mini-mock mélangeant les notions
+      des steps 7 à 14 (retrieval pratique).
+    spaced_repetition: "Consolidation transverse de tout le bloc 2 et 3"
+    break_it: "Overlay qui écrase mal la base"
+
   - step: 16
-    title: "Runbooks, ADR et gestion du cycle de vie"
-    description: "Documenter les procédures d'incident, les choix d'architecture et planifier les upgrades du cluster."
+    title: "Installation d'un cluster kubeadm"
+    description: >
+      Design de cluster, haute disponibilité (théorie), prérequis (swap,
+      containerd, sysctl, modules kernel), kubeadm init, CNI, join d'un
+      worker, kubeconfig, kubelet en systemd. Monter un cluster 2 nœuds local
+      (2 VMs sur PC).
+    spaced_repetition: "Revoir static pods (step 7) → sur kubeadm, le CP est en static pods"
+    break_it: "Kubelet qui ne démarre pas / join qui échoue"
+
+  - step: 17
+    title: "Upgrade de cluster et backup etcd"
+    description: >
+      Kubernetes releases, upgrade plan, kubeadm upgrade apply, drain /
+      uncordon, upgrade kubelet/kubectl. Sauvegarde et restauration etcd via
+      etcdctl (snapshot save/restore). Simuler un upgrade mineur puis un
+      restore complet.
+    spaced_repetition: "Revoir DaemonSet drain (step 7)"
+    break_it: "Restore sur un snapshot corrompu / kubelet après upgrade"
+
+  # =================================================================
+  # BLOC 5 — Sécurité, durcissement (step 18)
+  # =================================================================
+  - step: 18
+    title: "TLS, Certificates API, ServiceAccounts et SecurityContexts"
+    description: >
+      TLS basics, CertificateSigningRequest, approuver un cert, kubeconfig
+      multi-utilisateurs, ServiceAccount tokens (legacy et bound), image
+      security (imagePullSecrets, digest), securityContext durci, seccomp.
+      Générer un cert pour un utilisateur, créer un kubeconfig, durcir le
+      pod nginx au maximum.
+    spaced_repetition: "Revoir RBAC (step 2) et securityContext (step 6)"
+    break_it: "Cert expiré / imagePullSecrets manquant"
+
+  # =================================================================
+  # BLOC 6 — Troubleshooting et finalisation (steps 19-20)
+  # =================================================================
+  - step: 19
+    title: "Troubleshooting applicatif"
+    description: >
+      Diagnostiquer CrashLoopBackOff, ImagePullBackOff, CreateContainerConfigError,
+      Pending, Services sans endpoints, probes défaillantes, ConfigMap/Secret
+      manquants, PVC non bound. Casser volontairement 5 scénarios dans fablab
+      et écrire un runbook par scénario.
+    spaced_repetition: "Revoir steps 3, 4, 8, 9, 10"
+    break_it: "C'est le step break-it par excellence"
+
+  - step: 20
+    title: "Troubleshooting cluster & réseau + JSON Path + checklist finale"
+    description: >
+      Diagnostiquer control plane (kubelet, API server, etcd), worker nodes,
+      DNS, CNI, kube-proxy, kubelet logs. JSON Path (jsonpath, custom-columns,
+      sort-by). Checklist finale CKA : kubectl imperative, dry-run, explain,
+      kubectl debug, ephemeral containers.
+    spaced_repetition: "Consolidation transverse de tout le parcours"
+    break_it: "Cluster volontairement cassé à diagnostiquer de bout en bout"
