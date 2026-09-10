@@ -85,9 +85,10 @@ scale_deployment() {
     ready_loop=$(kubectl get deployment -n "$NAMESPACE" "$deployment" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
 
     if [[ "$replicas" -eq 0 ]]; then
-      # For zero replicas, success when status.replicas and readyReplicas are both 0 or empty.
-      if { [[ -z "$current_replicas" || "$current_replicas" == "0" ]]; } && \
-         { [[ -z "$ready_loop" || "$ready_loop" == "0" ]]; }; then
+      # When scaling to zero we only require status.replicas to become 0 (or missing).
+      # readyReplicas may briefly remain non-zero while pods are terminating, so it is not
+      # a reliable indicator for a zero-replica Deployment.
+      if [[ -z "$current_replicas" || "$current_replicas" == "0" ]]; then
         ready="0"
         break
       fi
