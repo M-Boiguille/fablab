@@ -5,10 +5,10 @@ metadata:
   namespace: dev
 spec:
   hard:
-    requests.cpu: "300m"
-    requests.memory: "40Mi"
-    limits.cpu: "700m"
-    limits.memory: "96Mi"
-    pods: 5
+    requests.cpu: "600m"
+    requests.memory: "80Mi"
+    limits.cpu: "1400m"
+    limits.memory: "192Mi"
+    pods: 7
     services: 1
-    count/deployment.apps: 1
+    count/deployment.apps: 2

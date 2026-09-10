@@ -2,21 +2,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx
-  namespace: dev
+  name: nginx-blue
+  namespace: staging
   labels:
     app: nginx
-    environment: dev
+    environment: staging
     team: platform
     managed-by: terraform
     version: "1.30.4"
-    track: "stable"
+    track: "blue"
 spec:
   selector:
     matchLabels:
       app: nginx
-      environment: dev
-      track: "stable"
+      environment: staging
+      track: "blue"
   replicas: 3
   strategy:
     type: RollingUpdate
@@ -31,8 +31,8 @@ spec:
         prometheus.io/port: "8123"
       labels:
         app: nginx
-        environment: dev
-        track: "stable"
+        environment: staging
+        track: "blue"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -46,14 +46,14 @@ spec:
             - |
               touch /usr/share/nginx/html/index.html;
               exec nginx -g 'daemon off;'
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         resources:
           requests:
-            cpu: 15m
-            memory: 5Mi
-          limits:
             cpu: 50m
-            memory: 10Mi
+            memory: 6Mi
+          limits:
+            cpu: 150m
+            memory: 16Mi
         ports:
         - containerPort: 80
           name: nginx
@@ -104,8 +104,8 @@ spec:
           - "--web.listen-address=:8123"          
         resources:
           requests:
-            cpu: 10m
-            memory: 4Mi
+            cpu: 12m
+            memory: 5Mi
           limits:
             cpu: 50m
             memory: 8Mi

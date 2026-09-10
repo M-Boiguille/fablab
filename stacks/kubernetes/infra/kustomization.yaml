@@ -15,18 +15,23 @@ resources:
   - base/resource_quotas/resourcequota_staging.yaml
   - base/limit_ranges/limitrange_tools.yaml
   - base/resource_quotas/resourcequota_tools.yaml
-  # nginx
+  # nginx dev
+  - apps/demo/nginx/service-nginx.yaml
   - apps/demo/nginx/configmap-nginx.yaml
   - apps/demo/nginx/deployment-nginx.yaml
-  - apps/demo/nginx/service-nginx.yaml
+  - apps/demo/nginx/deployment-nginx-canary.yaml
+  # nginx staging
+  - apps/staging/nginx/service-nginx.yaml
+  - apps/staging/nginx/configmap-nginx.yaml
+  - apps/staging/nginx/deployment-nginx-blue.yaml
+  - apps/staging/nginx/deployment-nginx-green.yaml
   # grafana
   - apps/demo/grafana/configmap-grafana.yaml
-  - apps/demo/grafana/deployment-grafana.yaml
-#  - apps/demo/grafana/ingress-grafana.yaml
   - apps/demo/grafana/service-grafana.yaml
+  - apps/demo/grafana/deployment-grafana.yaml
   # prometheus
+  - apps/demo/prometheus/service-prometheus.yaml
   - apps/demo/prometheus/config-configmap-prometheus.yaml
   - apps/demo/prometheus/rules-configmap-prometheus.yaml
-  - apps/demo/prometheus/deployment-prometheus.yaml
-  - apps/demo/prometheus/service-prometheus.yaml
   - apps/demo/prometheus/serviceaccount-prometheus.yaml
+  - apps/demo/prometheus/deployment-prometheus.yaml
