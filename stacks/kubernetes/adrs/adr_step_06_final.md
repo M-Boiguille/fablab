@@ -17,7 +17,7 @@ L'objectif de cette étape est de mettre en place deux stratégies complémentai
 - **Blue/Green** : deux environnements identiques (Blue = version actuelle, Green = nouvelle version), bascule du trafic via le `Service`, rollback immédiat.
 - **Canary** : déploiement progressif (paliers de réplicas), observation des métriques à chaque palier, décision de continuer ou d'annuler.
 
-Ces stratégies doivent respecter les `ResourceQuota` et `LimitRange` définis à l'étape 5 (ADR-0005) pour les namespaces `dev` et `staging` (pour tester le deploiement des deux versions, j'ai du augmenter modifier quelques limits/resources). 
+Ces stratégies doivent respecter les `ResourceQuota` et `LimitRange` définis à l'étape 5 (ADR-0005) pour les namespaces `dev` et `staging` (pour tester le deploiement des deux versions, j'ai du augmenter modifier quelques limits/resources).
 
 Les fichiers sont donc créés dans la structure existante, sans déplacement.
 
@@ -91,7 +91,7 @@ Cela permet de mesurer objectivement la répartition du trafic dans les scripts 
 
 ### 5. Respect des quotas (ADR-0005)
 
-Les `ResourceQuota` du namespace `staging` limitent `count/deployment.apps` à `2`, ce qui correspond exactement aux deux `Deployment` `nginx-blue` et `nginx-green`. Les `requests`/`limits` ont du être ajustées.
+Les `ResourceQuota` du namespace `staging` limitent `count/deployment.apps` à `2`, ce qui correspond exactement aux deux `Deployment` `nginx-blue` et `nginx-green`. Le namespace `dev` a également été ajusté pour autoriser deux `Deployment` (`nginx` stable et `nginx-canary`). Les `requests`/`limits` ont dû être ajustées.
 
 ## Alternatives considérées
 
@@ -113,7 +113,6 @@ Les `ResourceQuota` du namespace `staging` limitent `count/deployment.apps` à `
 
 | Risque | Mitigation |
 | :--- | :--- |
-| **Quota `count/deployment.apps` en tension** : le namespace `dev` a un quota de `1` mais héberge `2` `Deployment` (`nginx` + `nginx-canary`). Le namespace `staging` a un quota de `2` et héberge exactement `2` `Deployment`. | À arbitrer : soit relever le quota `count/deployment.apps` de `dev` à `2`, soit documenter que le canary est une exception temporaire. **Non tranché dans cet ADR.** |
 | **Bascule Blue/Green non atomique au niveau des connexions en cours** : les connexions TCP établies vers les anciens pods ne sont pas coupées, mais les nouvelles requêtes sont routées vers le nouveau `track`. | Acceptable pour un service HTTP sans état. À surveiller si des connexions longues sont introduites. |
 | **Canary sans métriques automatiques** : la décision de poursuivre ou d'annuler repose sur une observation manuelle des pourcentages. | Les métriques Prometheus/Grafana (étape 4) permettent d'observer les erreurs et la latence par version. Une automatisation (analyse automatique + rollback) n'est pas implémentée à cette étape. |
 | **Dérive de configuration entre blue et green** : les deux `Deployment` doivent rester identiques hors image et label. | Toute modification doit être appliquée aux deux fichiers. Une factorisation via Kustomize (étape 8) réduira ce risque. |
