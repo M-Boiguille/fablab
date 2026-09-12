@@ -37,6 +37,7 @@ spec:
       securityContext:
         runAsNonRoot: true
         fsGroup: 101
+      priorityClassName: nginx
       containers:
       - name: nginx
         image: nginx@sha256:09cc2702709e6388d979d8030e3ab4eb1ceb699b2dced26d7543e872a822e823
