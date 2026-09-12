@@ -37,5 +37,5 @@ resources:
   - apps/demo/prometheus/serviceaccount-prometheus.yaml
   - apps/demo/prometheus/deployment-prometheus.yaml
   # logs
-  - apps/demo/logs/logs.yaml
+  - apps/demo/logs/daemonset-logs.yaml
   - apps/demo/logs/configmap-logs.yaml

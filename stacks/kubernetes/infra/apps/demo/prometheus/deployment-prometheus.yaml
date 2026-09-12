@@ -29,13 +29,24 @@ spec:
     spec:
       serviceAccountName: prometheus-dev
 
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+
       containers:
         - name: prometheus
           image: prom/prometheus@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
 
           args:
             - "--config.file=/etc/prometheus/prometheus.yml"
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
 
           resources:
             requests:

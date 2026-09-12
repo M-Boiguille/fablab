@@ -87,7 +87,7 @@ fi
 # 2. Static Pod
 if [[ -f "$STATIC_POD_SCRIPT" ]]; then
   bash "$STATIC_POD_SCRIPT" >/dev/null 2>&1 || true
-  sleep 3
+  sleep 5
   staticPodReady=$(kubectl get pods -A -l app=static-nginx -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || echo "false")
   if [[ "$staticPodReady" == "true" ]]; then
     log_pass "The static pod is deployed and ready."

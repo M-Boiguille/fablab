@@ -31,9 +31,28 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: nginx
-          image: nginx:alpine
+          image: nginx@sha256:09cc2702709e6388d979d8030e3ab4eb1ceb699b2dced26d7543e872a822e823
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 101
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
           ports:
             - containerPort: 80
+          livenessProbe:
+            exec:
+              command:
+                - pgrep
+                - "[n]ginx"
+          readinessProbe:
+            exec:
+              command:
+                - pgrep
+                - "[n]ginx"
           resources:
             requests:
               cpu: 50m
@@ -41,3 +60,13 @@ spec:
             limits:
               cpu: 100m
               memory: 128Mi
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}

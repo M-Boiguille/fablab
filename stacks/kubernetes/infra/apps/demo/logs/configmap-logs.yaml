@@ -9,7 +9,10 @@ metadata:
     team: platform
     managed-by: terraform
 data:
-  log-collector-script.sh : |
+  log-collector-script.sh: |
     #!/bin/sh
 
-    tail -f $(find /host/var/log -type f -name "*.log")
+    files=$(find /host/var/log -type f -name "*.log")
+    [ -n "$files" ] || exit 0
+
+    tail -f $files

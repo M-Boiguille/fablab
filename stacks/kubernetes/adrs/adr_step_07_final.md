@@ -26,13 +26,22 @@ Le cluster est aujourd'hui une instance **K3s mono-nœud**. Ce n'est pas anodin 
 
 On déploie un `DaemonSet` dans `dev`, montant `/var/log/pods/` de l'hôte via un `hostPath`. C'est le seul contrôleur qui garantit une instance par nœud éligible et suit automatiquement les nœuds ajoutés. Sur un cluster mono-nœud, il ne crée donc qu'un pod, mais le comportement reste identique à l'échelle.
 
+Le conteneur s'exécute en **root** : c'est nécessaire pour lire les logs de l'hôte sous `/var/log/pods/`. Ce choix est compensé par un durcissement explicite du `securityContext` :
+
+- `allowPrivilegeEscalation: false`
+- `capabilities.drop: [ALL]`
+- `readOnlyRootFilesystem: true`
+- montage du `hostPath` en `readOnly: true`
+
+Un conteneur compromis ne peut donc ni escalader ses privilèges, ni modifier ou supprimer les logs collectés.
+
 ### 2.2. Static Pod Nginx
 
 On déploie Nginx en **Static Pod** en déposant un manifeste dans le répertoire de pods statiques du kubelet K3s (`/var/lib/rancher/k3s/agent/pod-manifests`). C'est le seul moyen de faire gérer un pod par le kubelet local sans passer par l'API Server. Le manifeste est déposé puis retiré par le script de validation : il n'a pas vocation à rester actif à ce stade.
 
 ### 2.3. PriorityClass pour l'application Fablab
 
-On définit une `PriorityClass` `nginx` (valeur `1000000`, `preemptionPolicy: PreemptLowerPriority`) dans `infra/apps/demo/nginx/priorityclass-nginx.yaml`, puis on la référence sur le déploiement Nginx de l'application Fablab (`dev`). Une priorité élevée permet au scheduler d'expulser des pods moins critiques en cas de saturation. Le manifeste séparé découple la politique de priorité du déploiement. La préemption reste surtout observable sous pression, mais le mécanisme est déclaré et vérifiable.
+On définit une `PriorityClass` `nginx` (valeur `1000`, `preemptionPolicy: Never`) dans `infra/apps/demo/nginx/priorityclass-nginx.yaml`, puis on la référence sur le déploiement Nginx de l'application Fablab (`dev`). La valeur reste volontairement dans la plage applicative (1000 à 10000) : une priorité applicative n'a pas à se situer dans la plage haute réservée aux composants système critiques du cluster. `preemptionPolicy: Never` empêche le scheduler d'expulser des pods existants : sur un cluster mono-nœud, une préemption agressive pourrait évincer des composants d'infrastructure au profit de cette workload non critique. Le manifeste séparé découple la politique de priorité du déploiement ; la priorité reste déclarée et vérifiable, sans introduire de risque d'éviction.
 
 ### 2.4. Placement sur nœud dédié (Affinity + Toleration)
 
@@ -51,6 +60,6 @@ Pour simuler un nœud « premium », on labellise le nœud avec `node-role.kuber
 **Risques et limites**
 
 * Sur mono-nœud, un label ou un taint mal posé peut bloquer la planification : ils sont retirés en fin de validation (via `tests/step_07_validation.sh`).
-* Le `hostPath` du `DaemonSet` expose le système de fichiers hôte, à restreindre en périmètre et en droits.
+* Le `hostPath` du `DaemonSet` expose le système de fichiers hôte en lecture seule. L'exécution en root, compensée par un `securityContext` durci, demeure un privilège sensible ; tout élargissement de périmètre devra être justifié.
 * Le taint `taint-color` est temporaire : le laisser en place perturberait la planification normale.
 * Le Static Pod est déployé pour démonstration puis retiré ; son maintien éventuel relèvera d'une décision ultérieure.
