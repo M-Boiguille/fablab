@@ -1,11 +1,12 @@
-current_step: 7
+current_step: 8
 total_steps: 16
 stack: kubernetes
 status: in_progress
-context_capsule: 'Implémentation Blue/Green (staging, rollback instantané via Service
-  selector) et Canary (dev, observation progressive via réplicas). Nécessité d''ajuster
-  les quotas. Trade-offs: B/G double les ressources, Canary est approximatif. Validation
-  réussie, mais opérations manuelles.'
+context_capsule: 'Implémentation et validation réussies du scheduling avancé (DaemonSet,
+  Static Pod, PriorityClass, Affinity/Tolerations) sur K3s mono-nœud. Manifests multi-nœuds
+  prêts. Sécurité proactive (securityContext durci pour hostPath/root). Gestion précise
+  des taints/affinités et objets temporaires. `preemptionPolicy: Never` pour éviter
+  l''éviction.'
 key_decisions:
 - 4 namespaces par environnement (dev, staging, prod, tools) avec labels standardisés
   (environment, team, managed-by)
@@ -38,6 +39,15 @@ key_decisions:
 - Canary adopté pour dev (observation progressive via nombre de réplicas).
 - Versions distinguées par endpoint /version et labels track.
 - ResourceQuota et LimitRange ajustés pour la coexistence des versions.
+- Utilisation d'un DaemonSet pour la collecte de logs, montant `/var/log/pods/` via
+  `hostPath`, avec un `securityContext` durci pour limiter les risques.
+- Déploiement temporaire d'un Static Pod Nginx pour illustrer la gestion directe par
+  le kubelet, hors API Server.
+- 'Création d''une PriorityClass `nginx` (valeur 1000, `preemptionPolicy: Never`)
+  pour l''application Fablab, afin de garantir sa stabilité sans éviction agressive.'
+- Mise en œuvre d'une `nodeAffinity` `requiredDuringSchedulingIgnoredDuringExecution`
+  et d'une `toleration` correspondante pour simuler le placement de pods sur un nœud
+  « premium » labellisé et teinté.
 pending_risks:
 - Prolifération de namespaces non gouvernés à l'avenir
 - Namespace mal configuré peut exposer des ressources sensibles
@@ -55,4 +65,9 @@ pending_risks:
 - Dérive de configuration entre les Deployment Blue et Green.
 - Absence d'automatisation pour l'analyse des métriques Canary et le rollback.
 - Absence de PodDisruptionBudget.
-last_updated: '2026-09-10T19:32:10.537568Z'
+- L'utilisation de `hostPath` et l'exécution en `root` pour le DaemonSet de logs,
+  même avec un `securityContext` durci, représente un privilège élevé. Tout élargissement
+  de périmètre nécessitera une revue de sécurité approfondie.
+- Le maintien éventuel du Static Pod Nginx, déployé pour démonstration, relèvera d'une
+  décision ultérieure.
+last_updated: '2026-09-12T22:01:33.755436Z'
