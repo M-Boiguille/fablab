@@ -1,0 +1,13 @@
+PASS
+--- Summary ---
+PASS | The daemonset is deployed and ready.
+PASS | The static pod is deployed and ready.
+PASS | The deployment nginx has priorityClassName: nginx.
+PASS | PriorityClass nginx exists.
+PASS | Pod is Pending when node has blue taint (toleration is yellow).
+PASS | Pod is Running after switching node taint to yellow.
+PASS | Pod is Pending when node misses required nodeAffinity label.
+PASS | Pod is Running after re-applying nodeAffinity label.
+# PASS: 8
+# FAIL: 0
+# PASS | Step 07 validation successful

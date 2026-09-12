@@ -20,6 +20,7 @@ resources:
   - apps/demo/nginx/configmap-nginx.yaml
   - apps/demo/nginx/deployment-nginx.yaml
   - apps/demo/nginx/deployment-nginx-canary.yaml
+  - apps/demo/nginx/priorityclass-nginx.yaml
   # nginx staging
   - apps/staging/nginx/service-nginx.yaml
   - apps/staging/nginx/configmap-nginx.yaml
@@ -35,3 +36,6 @@ resources:
   - apps/demo/prometheus/rules-configmap-prometheus.yaml
   - apps/demo/prometheus/serviceaccount-prometheus.yaml
   - apps/demo/prometheus/deployment-prometheus.yaml
+  # logs
+  - apps/demo/logs/daemonset-logs.yaml
+  - apps/demo/logs/configmap-logs.yaml

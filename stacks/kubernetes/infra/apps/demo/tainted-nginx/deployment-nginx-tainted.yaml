@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-tainted
+  namespace: default
+  labels:
+    app: nginx-tainted
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-tainted
+  template:
+    metadata:
+      labels:
+        app: nginx-tainted
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/premium
+                    operator: In
+                    values:
+                      - "true"
+      tolerations:
+        - key: "taint-color"
+          operator: "Equal"
+          value: "yellow"
+          effect: "NoSchedule"
+      containers:
+        - name: nginx
+          image: nginx@sha256:09cc2702709e6388d979d8030e3ab4eb1ceb699b2dced26d7543e872a822e823
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 101
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            exec:
+              command:
+                - pgrep
+                - "[n]ginx"
+          readinessProbe:
+            exec:
+              command:
+                - pgrep
+                - "[n]ginx"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}

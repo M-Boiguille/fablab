@@ -1,4 +1,3 @@
-# https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -46,7 +45,7 @@ spec:
             - |
               touch /usr/share/nginx/html/index.html;
               exec nginx -g 'daemon off;'
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         resources:
           requests:
             cpu: 15m
@@ -57,7 +56,6 @@ spec:
         ports:
         - containerPort: 80
           name: nginx
-        # Liveness: detect deadlock/irrecoverable state. Period 10s, 3 consecutive failures => restart after ~30s.
         livenessProbe:
           httpGet:
             path: /health
@@ -67,7 +65,6 @@ spec:
           timeoutSeconds: 2
           failureThreshold: 3
           successThreshold: 1
-        # Readiness: ensure pod is able to serve traffic. Period 10s, 3 consecutive failures => remove from Service.
         readinessProbe:
           httpGet:
             path: /hello

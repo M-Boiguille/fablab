@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: logs
+  name: log-pod-ds
+  namespace: dev
+spec:
+  selector:
+    matchLabels:
+      app: log-pod
+  template:
+    metadata:
+      labels:
+        app: log-pod
+    spec:
+      containers:
+      - name: busybox-log
+        image: busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+        command:
+          - sh
+        args:
+          - '/usr/bin/log-collector-script.sh'
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        livenessProbe:
+          exec:
+            command:
+              - pgrep
+              - tail
+          initialDelaySeconds: 2
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 3
+          successThreshold: 1
+        volumeMounts:
+        - name: log-path
+          mountPath: /host/var/log/
+          readOnly: true
+        - name: script
+          mountPath: /usr/bin/log-collector-script.sh
+          subPath: log-collector-script.sh
+          readOnly: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 4Mi
+          limits:
+            cpu: 30m
+            memory: 8Mi
+      volumes:
+      - name: log-path
+        hostPath:
+          path: /var/log/pods/
+          type: Directory
+      - name: script
+        configMap:
+          name: logs-config

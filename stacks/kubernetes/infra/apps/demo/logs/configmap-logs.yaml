@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logs-config
+  namespace: dev
+  labels:
+    app: logs
+    environment: dev
+    team: platform
+    managed-by: terraform
+data:
+  log-collector-script.sh: |
+    #!/bin/sh
+
+    files=$(find /host/var/log -type f -name "*.log")
+    [ -n "$files" ] || exit 0
+
+    tail -f $files
