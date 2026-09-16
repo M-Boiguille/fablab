@@ -40,6 +40,7 @@ spec:
       initContainers:
         - name: html-file
           image: busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+          imagePullPolicy: IfNotPresent
           command:
             - sh
             - -c
@@ -54,11 +55,10 @@ spec:
             capabilities:
               drop:
                 - ALL
-              add:
-                - NET_BIND_SERVICE
       containers:
         - name: sidecar-nginx
           image: busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+          imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: nginx-logs
               mountPath: /var/log/nginx
@@ -73,8 +73,6 @@ spec:
             capabilities:
               drop:
                 - ALL
-              add:
-                - NET_BIND_SERVICE
         - name: nginx
           image: nginx@sha256:05b8cb60c354a44ab824ea6e7dc69b46d50762cdbe728a347a5b656e6fb3d7c4
           imagePullPolicy: IfNotPresent
@@ -134,6 +132,7 @@ spec:
               mountPath: /usr/share/nginx/certificates
         - name: nginx-prometheus-exporter
           image: nginx/nginx-prometheus-exporter@sha256:85666e7fde7e253f1c6d978f9a961245df4c9cdb7677e1866d9bb28e8f9ee41d
+          imagePullPolicy: IfNotPresent
           args:
             - "--nginx.scrape-uri=http://127.0.0.1:80/stub_status"
             - "--web.listen-address=:8123"
