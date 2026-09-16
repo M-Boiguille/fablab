@@ -5,18 +5,22 @@ metadata:
   name: nginx-service
   namespace: dev
   labels:
-    app: nginx
+    app: nginx-extended
     environment: dev
     team: platform
     managed-by: terraform
 spec:
   selector:
-    app: nginx
+    app: nginx-extended
   type: ClusterIP
   ports:
-  - name: nginx-http
-    protocol: TCP
-    port: 8080
-    targetPort: 80
+    - name: nginx-http
+      protocol: TCP
+      port: 8080
+      targetPort: 80
+    - name: nginx-https
+      port: 8443
+      protocol: TCP
+      targetPort: 443
   publishNotReadyAddresses: false
 ---

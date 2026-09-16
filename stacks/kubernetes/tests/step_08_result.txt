@@ -1,0 +1,30 @@
+FAIL
+--- Summary ---
+PASS | ConfigMap 'nginx-config' exists in namespace dev.
+PASS | ConfigMap 'nginx-config' is immutable (immutable: true).
+PASS | ConfigMap 'nginx-config' contains a 'nginx.conf' entry.
+PASS | Secret 'nginx-secret' exists in namespace dev.
+PASS | Secret 'nginx-secret' has type kubernetes.io/tls.
+PASS | Secret 'nginx-secret' contains both 'tls.crt' and 'tls.key' keys.
+PASS | Deployment 'nginx' has an nginx container ('nginx').
+PASS | Deployment 'nginx' has a sidecar container ('sidecar-nginx').
+PASS | Deployment 'nginx' runs 3 containers (multi-container pod).
+PASS | Sidecar and nginx share the log volume 'nginx-logs' at /var/log/nginx.
+PASS | Port 80 is exposed by the Deployment 'nginx'.
+PASS | Port 443 is exposed by the Deployment 'nginx'.
+PASS | The TLS Secret volume is mounted into the nginx container for HTTPS termination.
+PASS | A pod-level securityContext is defined.
+PASS | Container 'nginx' defines a container-level securityContext.
+PASS | Container 'sidecar-nginx' defines a container-level securityContext.
+PASS | Container 'nginx' has runAsNonRoot: true.
+PASS | Container 'sidecar-nginx' has runAsNonRoot: true.
+PASS | Deployment 'nginx' is available (3/3 replicas ready).
+PASS | HTTP connectivity to the application succeeded (status 000000).
+PASS | HTTPS connectivity to the application succeeded (status 000000).
+PASS | Break-it: backup of ConfigMap 'nginx-config' saved before deletion.
+PASS | Break-it: Pods are not Ready after the referenced ConfigMap 'nginx-config' was deleted (issue diagnosed).
+FAIL | Break-it: no event mentions the missing ConfigMap 'nginx-config'.
+PASS | Break-it: the application recovered after the referenced ConfigMap 'nginx-config' was restored.
+# PASS: 24
+# FAIL: 1
+# FAIL | Step 08 validation failed

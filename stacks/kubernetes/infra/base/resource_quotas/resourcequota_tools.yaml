@@ -5,8 +5,8 @@ metadata:
   namespace: tools
 spec:
   hard:
-    requests.cpu: "600m"
-    requests.memory: "768Mi"
-    limits.cpu: "1"
-    limits.memory: "1Gi"
+    requests.cpu: "400m"
+    requests.memory: "256Mi"
+    limits.cpu: "800m"
+    limits.memory: "512Mi"
     pods: 4

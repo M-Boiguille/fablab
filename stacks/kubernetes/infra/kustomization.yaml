@@ -21,6 +21,7 @@ resources:
   - apps/demo/nginx/deployment-nginx.yaml
   - apps/demo/nginx/deployment-nginx-canary.yaml
   - apps/demo/nginx/priorityclass-nginx.yaml
+  - apps/demo/nginx/secret-tls-nginx.yaml
   # nginx staging
   - apps/staging/nginx/service-nginx.yaml
   - apps/staging/nginx/configmap-nginx.yaml
