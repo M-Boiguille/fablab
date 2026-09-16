@@ -22,11 +22,7 @@ spec:
         args:
           - '/usr/bin/log-collector-script.sh'
         securityContext:
-          allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-              - ALL
         livenessProbe:
           exec:
             command:

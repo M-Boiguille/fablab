@@ -15,3 +15,7 @@ _site/
 .DS_Store
 .aider*
 notes/
+
+# Kubernetes secrets — do not commit real credentials
+stacks/kubernetes/infra/apps/demo/nginx/secret-tls-nginx.yaml
+stacks/kubernetes/infra/apps/staging/nginx/secret-tls-nginx.yaml
