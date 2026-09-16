@@ -1,4 +1,4 @@
-FAIL
+PASS
 --- Summary ---
 PASS | ConfigMap 'nginx-config' exists in namespace dev.
 PASS | ConfigMap 'nginx-config' is immutable (immutable: true).
