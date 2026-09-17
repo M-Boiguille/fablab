@@ -23,6 +23,7 @@ class LLMClient:
         deepseek_url: Optional[str] = None,
         max_retries: int = 3,
         backoff: int = 2,
+        max_output_tokens: int = 8192,
     ):
         self.gemini_key = (gemini_key or os.environ.get("GEMINI_API_KEY") or "").strip()
         self.deepseek_key = (deepseek_key or os.environ.get("DEEPSEEK_API_KEY") or "").strip()
@@ -30,6 +31,7 @@ class LLMClient:
         self.deepseek_url = deepseek_url or self.DEFAULT_DEEPSEEK_URL
         self.max_retries = max_retries
         self.backoff = backoff
+        self.max_output_tokens = max_output_tokens
 
         self.providers: List[str] = []
         if self.gemini_key:
@@ -54,7 +56,7 @@ class LLMClient:
             "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
             "generationConfig": {
                 "temperature": 0.2,
-                "maxOutputTokens": 2500,
+                "maxOutputTokens": self.max_output_tokens,
             },
         }
         response = requests.post(
@@ -73,6 +75,13 @@ class LLMClient:
         parts = candidates[0].get("content", {}).get("parts", [{}])
         if not parts or "text" not in parts[0]:
             raise RuntimeError("Réponse Gemini mal formée")
+
+        finish_reason = candidates[0].get("finishReason")
+        if finish_reason == "MAX_TOKENS":
+            logger.warning(
+                "Réponse Gemini potentiellement tronquée (finishReason = MAX_TOKENS)"
+            )
+
         return parts[0]["text"]
 
     def _call_deepseek(self, system_prompt: str, user_prompt: str) -> str:
@@ -86,7 +95,7 @@ class LLMClient:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.2,
-            "max_tokens": 2500,
+            "max_tokens": self.max_output_tokens,
         }
         response = requests.post(
             self.deepseek_url,
@@ -102,6 +111,13 @@ class LLMClient:
         choices = response.json().get("choices", [])
         if not choices:
             raise RuntimeError("Réponse DeepSeek vide")
+
+        finish_reason = choices[0].get("finish_reason")
+        if finish_reason == "length":
+            logger.warning(
+                "Réponse DeepSeek potentiellement tronquée (finish_reason = length)"
+            )
+
         return choices[0]["message"]["content"]
 
     def chat(self, system_prompt: str, user_prompt: str) -> str:

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: staging
+  labels:
+    app: nginx
+    environment: staging
+    team: platform
+    managed-by: terraform
+data:
+  default.conf: |
+        server {
+            listen 80;
+
+            location = /health {
+                root /usr/share/nginx/html;
+                try_files /index.html =404;
+            }
+
+            location = /hello {
+                root /usr/share/nginx/html;
+                try_files /index.html =404;
+            }
+
+            location /version {
+                return 200 "$nginx_version";
+                add_header Content-Type text/plain;
+            }
+
+            location / {
+                return 404;
+            }
+
+            location = /stub_status {
+                stub_status;
+            }
+        }
+
+

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: prod-limits
+  namespace: prod
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: 30m
+      memory: 8Mi
+    default:
+      cpu: 150m
+      memory: 24Mi
+    min:
+      cpu: 14m
+      memory: 6Mi
+    max:
+      cpu: 300m
+      memory: 36Mi

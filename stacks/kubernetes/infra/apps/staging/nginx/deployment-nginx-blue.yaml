@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx
-  namespace: dev
+  name: nginx-blue
+  namespace: staging
   labels:
     app: nginx
-    environment: dev
+    environment: staging
     team: platform
     managed-by: terraform
     version: "1.30.4"
-    track: "stable"
+    track: "blue"
 spec:
   selector:
     matchLabels:
       app: nginx
-      environment: dev
-      track: "stable"
+      environment: staging
+      track: "blue"
   replicas: 3
   strategy:
     type: RollingUpdate
@@ -30,8 +30,8 @@ spec:
         prometheus.io/port: "8123"
       labels:
         app: nginx
-        environment: dev
-        track: "stable"
+        environment: staging
+        track: "blue"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -133,10 +133,10 @@ spec:
               mountPath: /var/cache/nginx
             - name: nginx-run
               mountPath: /var/run
-            - name: nginx-certificates
-              mountPath: /usr/share/nginx/certificates
             - name: nginx-logs
               mountPath: /var/log/nginx
+            - name: nginx-certificates
+              mountPath: /usr/share/nginx/certificates
         - name: nginx-prometheus-exporter
           image: nginx/nginx-prometheus-exporter@sha256:85666e7fde7e253f1c6d978f9a961245df4c9cdb7677e1866d9bb28e8f9ee41d
           imagePullPolicy: IfNotPresent
@@ -187,4 +187,5 @@ spec:
         - name: nginx-certificates
           secret:
             secretName: nginx-secret
+            optional: false
       restartPolicy: Always

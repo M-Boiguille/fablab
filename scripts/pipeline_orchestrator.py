@@ -24,6 +24,19 @@ HEADERS = {
     "X-GitHub-Api-Version": "2022-11-28",
 }
 
+REVIEW_FORMAT_INSTRUCTIONS = """
+## Format de sortie requis
+- Utilise exclusivement du Markdown.
+- Structure la revue avec les sections suivantes, dans cet ordre :
+  1. **Résumé** : synthèse courte.
+  2. **Points forts** : liste à puces.
+  3. **Points bloquants** : liste à puces (ou "Aucun" si rien).
+  4. **Suggestions d'amélioration** : liste à puces.
+  5. **Conclusion** : paragraphe de clôture.
+- Termine TOUJOURS la revue par une ligne `---`.
+- Ne coupe JAMAIS au milieu d'une section.
+"""
+
 
 def _gh(
     method: str,
@@ -547,6 +560,11 @@ def post_pr_comment(pr_number: int, body: str, key: str = "") -> None:
     print(f"Commentaire créé avec succès, réponse: {response}")
 
 
+def append_review_format_instructions(user_prompt: str) -> str:
+    """Ajoute les consignes de format à la requête pour une revue complète et structurée."""
+    return user_prompt + "\n\n" + REVIEW_FORMAT_INSTRUCTIONS
+
+
 def review_adr(args: argparse.Namespace) -> None:
     if not REPO or not GITHUB_TOKEN:
         raise RuntimeError("GITHUB_REPOSITORY et GITHUB_TOKEN doivent être définis")
@@ -577,6 +595,7 @@ def review_adr(args: argparse.Namespace) -> None:
     prompt = load_prompt(stack, "system_architect.txt", ctx)
     adr = load_text(adr_path)
     user_prompt = f"ADR à reviewer :\n\n{adr}"
+    user_prompt = append_review_format_instructions(user_prompt)
     review = llm.chat(prompt, user_prompt)
     print(f"Review ADR générée ({len(review)} caractères)")
     if not review.strip():
@@ -643,6 +662,7 @@ def sre_review(args: argparse.Namespace) -> None:
         f"Résultat de validation :\n{result}\n\n"
         f"Artefacts d'infra :\n{manifests}"
     )
+    user_prompt = append_review_format_instructions(user_prompt)
     review = llm.chat(prompt, user_prompt)
     post_pr_comment(
         pr_number,
