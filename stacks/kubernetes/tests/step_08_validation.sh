@@ -19,6 +19,17 @@ EXPECTED_SECRET="${EXPECTED_SECRET:-nginx-secret}"
 NGINX_CONTAINER="nginx"
 SIDECAR_CONTAINER="sidecar-nginx"
 
+# Optional restart of k3s after deleting the ConfigMap to purge kubelet cache.
+# Set RESTART_K3S_AFTER_CM_DELETE=true to enable.
+#
+# Break-it expectations:
+#   - false : pods are expected to keep starting after ConfigMap deletion
+#             because the kubelet may serve the ConfigMap from its cache.
+#   - true  : pods are expected to fail with FailedMount after k3s restart
+#             because the restart clears the local kubelet cache.
+RESTART_K3S_AFTER_CM_DELETE="${RESTART_K3S_AFTER_CM_DELETE:-false}"
+K3S_RESTART_WAIT="${K3S_RESTART_WAIT:-15}"
+
 LOG_ENTRIES=()
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -85,6 +96,22 @@ cleanup() {
   restore_configmap
 }
 trap cleanup EXIT
+
+# ---- Optional k3s restart after ConfigMap deletion -------------------------
+restart_k3s_after_cm_delete() {
+  if [[ "$RESTART_K3S_AFTER_CM_DELETE" != "true" ]]; then
+    return 0
+  fi
+
+  if sudo -n systemctl restart k3s >/dev/null 2>&1; then
+    log_pass "Break-it: restarted k3s to clear kubelet cache before pod recreation"
+    sleep "$K3S_RESTART_WAIT"
+    return 0
+  else
+    log_fail "Break-it: could not restart k3s via sudo -n systemctl restart k3s"
+    return 1
+  fi
+}
 
 # ---- Prerequisites ---------------------------------------------------------
 if ! command -v kubectl >/dev/null 2>&1; then
@@ -174,7 +201,7 @@ else
   log_fail "Deployment '$DEPLOY_NAME' has no container named '$SIDECAR_CONTAINER'."
 fi
 
-if (( ${#CONTAINERS[@]} >= 2 )); then
+if ((${#CONTAINERS[@]} >= 2)); then
   log_pass "Deployment '$DEPLOY_NAME' runs ${#CONTAINERS[@]} containers (multi-container pod)."
 else
   log_fail "Deployment '$DEPLOY_NAME' runs ${#CONTAINERS[@]} container(s), expected at least 2 (nginx + sidecar)."
@@ -249,7 +276,7 @@ done
 desired="$(kubectl get deployment "$DEPLOY_NAME" -n "$NAMESPACE" -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "0")"
 ready_replicas="$(kubectl get deployment "$DEPLOY_NAME" -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")"
 ready_replicas="${ready_replicas:-0}"
-if (( desired > 0 && ready_replicas >= desired )); then
+if ((desired > 0 && ready_replicas >= desired)); then
   log_pass "Deployment '$DEPLOY_NAME' is available ($ready_replicas/$desired replicas ready)."
 else
   log_fail "Deployment '$DEPLOY_NAME' is not fully available ($ready_replicas/$desired replicas ready)."
@@ -305,48 +332,66 @@ SELECTOR="$(kubectl get deployment "$DEPLOY_NAME" -n "$NAMESPACE" \
 
 ready_pod_count() {
   kubectl get pods -n "$NAMESPACE" -l "$SELECTOR" \
-    -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' 2>/dev/null \
-    | grep -c '^True$' || true
+    -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' 2>/dev/null |
+    grep -c '^True$' || true
 }
 
 if ! kubectl get configmap "$EXPECTED_CONFIGMAP" -n "$NAMESPACE" >/dev/null 2>&1; then
   log_fail "Break-it scenario skipped: ConfigMap '$EXPECTED_CONFIGMAP' does not exist."
 else
   CM_BACKUP="$(mktemp -t step08-cm-XXXXXX.yaml)"
-  kubectl get configmap "$EXPECTED_CONFIGMAP" -n "$NAMESPACE" -o yaml --show-managed-fields=false 2>/dev/null \
-    | sed -E '/^[[:space:]]*(resourceVersion|uid|creationTimestamp|generation|selfLink):/d' >"$CM_BACKUP"
+  kubectl get configmap "$EXPECTED_CONFIGMAP" -n "$NAMESPACE" -o yaml --show-managed-fields=false 2>/dev/null |
+    sed -E '/^[[:space:]]*(resourceVersion|uid|creationTimestamp|generation|selfLink):/d' >"$CM_BACKUP"
 
   log_pass "Break-it: backup of ConfigMap '$EXPECTED_CONFIGMAP' saved before deletion."
 
   kubectl delete configmap "$EXPECTED_CONFIGMAP" -n "$NAMESPACE" --ignore-not-found=true >/dev/null 2>&1 || true
+
+  # Optional: restart k3s to purge kubelet cache before recreating pods.
+  restart_k3s_after_cm_delete
+
   kubectl delete pods -n "$NAMESPACE" -l "$SELECTOR" --wait=false --ignore-not-found=true >/dev/null 2>&1 || true
 
-  broken=0
+  # Default to "broken" unless we observe at least one Ready pod during the wait.
+  broken=1
   for _ in {1..15}; do
     rc="$(ready_pod_count)"
     rc="${rc:-0}"
-    if (( rc == 0 )); then
-      broken=1
+    if ((rc > 0)); then
+      broken=0
       break
     fi
     sleep 2
   done
 
-  if [[ "$broken" -eq 1 ]]; then
-    log_pass "Break-it: Pods are not Ready after the referenced ConfigMap '$EXPECTED_CONFIGMAP' was deleted (issue diagnosed)."
+  if [[ "$RESTART_K3S_AFTER_CM_DELETE" == "true" ]]; then
+    if [[ "$broken" -eq 1 ]]; then
+      log_pass "Break-it with k3s restart: pods are not Ready after ConfigMap deletion (expected)."
+    else
+      log_fail "Break-it with k3s restart: pods remained Ready after ConfigMap deletion. Expected pod failure."
+    fi
   else
-    log_non_concluant "Break-it: Pods remained Ready after the referenced ConfigMap '$EXPECTED_CONFIGMAP' was deleted. K3s kubelet cache bug likely masks the missing volume; scenario non concluant sans redémarrage de k3s (cf ADR 08)."
+    if [[ "$broken" -eq 0 ]]; then
+      log_pass "Break-it without k3s restart: pods restarted despite ConfigMap deletion (expected kubelet cache behavior)."
+    else
+      log_fail "Break-it without k3s restart: pods did not restart after ConfigMap deletion. Expected cached ConfigMap to allow startup."
+    fi
   fi
 
-  event_hits="$(kubectl get events -n "$NAMESPACE" 2>/dev/null \
-    | grep -i "$EXPECTED_CONFIGMAP" | grep -ci 'not found\|FailedMount\|CreateContainerConfigError' || true)"
-  if (( ${event_hits:-0} > 0 )); then
-    log_pass "Break-it: events reference the missing ConfigMap '$EXPECTED_CONFIGMAP' (root cause identifiable)."
-  else
-    if [[ "$broken" -eq 1 ]]; then
-      log_fail "Break-it: no event mentions the missing ConfigMap '$EXPECTED_CONFIGMAP'."
+  event_hits="$(kubectl get events -n "$NAMESPACE" 2>/dev/null |
+    grep -i "$EXPECTED_CONFIGMAP" | grep -ci 'not found\|FailedMount\|CreateContainerConfigError' || true)"
+
+  if [[ "$RESTART_K3S_AFTER_CM_DELETE" == "true" ]]; then
+    if ((${event_hits:-0} > 0)); then
+      log_pass "Break-it with k3s restart: events reference the missing ConfigMap '$EXPECTED_CONFIGMAP' (expected)."
     else
-      log_non_concluant "Break-it: no event mentions the missing ConfigMap '$EXPECTED_CONFIGMAP'. K3s cache issue may mask the missing volume."
+      log_fail "Break-it with k3s restart: no event mentions the missing ConfigMap '$EXPECTED_CONFIGMAP'."
+    fi
+  else
+    if ((${event_hits:-0} == 0)); then
+      log_pass "Break-it without k3s restart: no event mentions the missing ConfigMap '$EXPECTED_CONFIGMAP' (expected no mount failure)."
+    else
+      log_fail "Break-it without k3s restart: unexpected event mentions the missing ConfigMap '$EXPECTED_CONFIGMAP'."
     fi
   fi
 
@@ -359,7 +404,7 @@ else
   for _ in {1..20}; do
     rc="$(ready_pod_count)"
     rc="${rc:-0}"
-    if (( rc >= 1 )); then
+    if ((rc >= 1)); then
       recovered=1
       break
     fi

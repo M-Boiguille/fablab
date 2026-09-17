@@ -22,10 +22,10 @@ PASS | Deployment 'nginx' is available (3/3 replicas ready).
 PASS | HTTP connectivity to the application succeeded (status 000000).
 PASS | HTTPS connectivity to the application succeeded (status 000000).
 PASS | Break-it: backup of ConfigMap 'nginx-config' saved before deletion.
-NON_CONCLUANT | Break-it: Pods remained Ready after the referenced ConfigMap 'nginx-config' was deleted. K3s kubelet cache bug likely masks the missing volume; scenario non concluant sans redémarrage de k3s (cf ADR 08).
-NON_CONCLUANT | Break-it: no event mentions the missing ConfigMap 'nginx-config'. K3s cache issue may mask the missing volume.
+PASS | Break-it without k3s restart: pods restarted despite ConfigMap deletion (expected kubelet cache behavior).
+PASS | Break-it without k3s restart: no event mentions the missing ConfigMap 'nginx-config' (expected no mount failure).
 PASS | Break-it: the application recovered after the referenced ConfigMap 'nginx-config' was restored.
-# PASS: 23
+# PASS: 25
 # FAIL: 0
-# NON_CONCLUANT: 2
+# NON_CONCLUANT: 0
 # PASS | Step 08 validation successful

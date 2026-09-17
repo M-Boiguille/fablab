@@ -63,3 +63,25 @@ Pour simuler un nœud « premium », on labellise le nœud avec `node-role.kuber
 * Le `hostPath` du `DaemonSet` expose le système de fichiers hôte en lecture seule. L'exécution en root, compensée par un `securityContext` durci, demeure un privilège sensible ; tout élargissement de périmètre devra être justifié.
 * Le taint `taint-color` est temporaire : le laisser en place perturberait la planification normale.
 * Le Static Pod est déployé pour démonstration puis retiré ; son maintien éventuel relèvera d'une décision ultérieure.
+
+---
+
+## 4. Complément - Comportement du kubelet et cache des ConfigMaps
+
+### 4.1 Contexte
+
+Lors des validations de l'étape 8 (break-it scenario), nous avons observé un comportement inattendu : après suppression de la ConfigMap `nginx-config`, les nouveaux pods Nginx redémarraient correctement en `Running` alors que la ConfigMap était bien absente côté API server.
+
+Le scénario attendu était pourtant :
+
+1. Suppression de la ConfigMap.
+2. Suppression des pods ou `rollout restart`.
+3. Le kubelet, incapable de monter la ConfigMap, laisse les nouveaux pods en `ContainerCreating` avec un événement `FailedMount: configmap "nginx-config" not found`.
+4. La recréation de la ConfigMap permet la récupération.
+
+Ce comportement a été confirmé **uniquement après purge du cache du kubelet**.
+
+### 4.2 Cause identifiée
+
+Le kubelet maintient un **cache local** des ConfigMaps et Secrets pour éviter une requête API à chaque montage de volume. La stratégie de détection des changements, lue via `/configz`, était :
+
