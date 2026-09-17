@@ -40,6 +40,7 @@ spec:
       initContainers:
         - name: html-file
           image: busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+          imagePullPolicy: IfNotPresent
           command:
             - sh
             - -c
@@ -54,14 +55,20 @@ spec:
             capabilities:
               drop:
                 - ALL
-              add:
-                - NET_BIND_SERVICE
       containers:
         - name: sidecar-nginx
           image: busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+          imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: nginx-logs
               mountPath: /var/log/nginx
+          resources:
+            requests:
+              cpu: 10m
+              memory: 4Mi
+            limits:
+              cpu: 30m
+              memory: 8Mi
           command:
             - sh
             - -c
@@ -73,8 +80,6 @@ spec:
             capabilities:
               drop:
                 - ALL
-              add:
-                - NET_BIND_SERVICE
         - name: nginx
           image: nginx@sha256:09cc2702709e6388d979d8030e3ab4eb1ceb699b2dced26d7543e872a822e823
           imagePullPolicy: IfNotPresent
@@ -119,8 +124,8 @@ spec:
                 - NET_BIND_SERVICE
           volumeMounts:
             - name: nginx-config
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
               readOnly: true
             - name: html
               mountPath: /usr/share/nginx/html
@@ -134,6 +139,7 @@ spec:
               mountPath: /var/log/nginx
         - name: nginx-prometheus-exporter
           image: nginx/nginx-prometheus-exporter@sha256:85666e7fde7e253f1c6d978f9a961245df4c9cdb7677e1866d9bb28e8f9ee41d
+          imagePullPolicy: IfNotPresent
           args:
             - "--nginx.scrape-uri=http://127.0.0.1:80/stub_status"
             - "--web.listen-address=:8123"
@@ -147,6 +153,25 @@ spec:
           ports:
             - name: metrics
               containerPort: 8123
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 101
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: nginx-config
           configMap:
@@ -163,4 +188,3 @@ spec:
           secret:
             secretName: nginx-secret
       restartPolicy: Always
----
